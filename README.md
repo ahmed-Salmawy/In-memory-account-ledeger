@@ -11,8 +11,8 @@ Requires JDK 17 or newer. The Maven wrapper pins Maven 3.9.11; JUnit is
 the only direct dependency and is test-scoped. No runtime dependencies.
 
 ```sh
-./mvnw test                 # Monetary and ledger tests
-./mvnw clean verify         # Clean compile, tests, and library JAR
+./mvnw test                 # Runs the suite; see expected failure below
+./mvnw clean verify         # Clean build; reports the same designed failure
 ./mvnw -o test              # Offline, with Maven/dependencies already cached
 ./mvnw -o package
 java -cp target/classes ledger.LedgerApplication
@@ -21,6 +21,10 @@ java -cp target/classes ledger.LedgerApplication
 Use `mvnw.cmd` on Windows. First use requires network access if the Maven
 distribution or dependencies are missing. Build output is ignored under
 `target/`; test results are in `target/surefire-reports/`.
+
+The suite intentionally contains one failing test for acceptance criterion 7.
+It demonstrates that three BHD 3.334 instalments total BHD 10.002 and therefore
+conflict with the exact BHD 10.000 source amount. See `REJECTED.md` criterion 7.
 
 ## Structure
 
@@ -33,7 +37,8 @@ distribution or dependencies are missing. Build output is ignored under
 - `src/test/java/ledger/`: matching domain/service tests.
 - `DESIGN.md`, `IMPLEMENTATION_PLAN.md`, and `AMBIGUITIES.md`: architecture
   context and explicit policy decisions.
-- `NUMBERS.md` and `REJECTED.md`: numeric choices and rejected interpretations.
+- `NUMBERS.md` and `REJECTED.md`: numeric choices and acceptance decisions.
+- `WORKLOG.md`: timestamped implementation and verification milestones.
 
 ## Enforced invariants
 
@@ -105,7 +110,7 @@ measured replay size warrants it.
 
 ## Resolved interpretation conflicts
 
-The selected fee policy reconciles only the processed event's value day, so
+The selected fee policy reconciles only the processed command's value day, so
 E7 assesses one Day 2 fee and does not propagate fees to Days 4–5. E9 later
 appends its reversal. Auth-B is declined because E8 has insufficient available
 funds. BHD has no AED-denominated fee, interest capitalizes per account, and
