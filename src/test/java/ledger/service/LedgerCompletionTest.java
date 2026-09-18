@@ -130,11 +130,15 @@ class LedgerCompletionTest {
         assertTrue(report.render().contains("errors=[UNKNOWN_AUTHORIZATION]"));
     }
 
-    @Disabled("Conflicts with the nonnegative-available approval rule; AMBIGUITIES §2")
+    @Disabled("Acceptance criterion 7 conflicts with exact BHD allocation; see REJECTED.md")
     @Test
-    void alternativeCriterionWouldKeepAuthBActive() {
-        assertEquals(AuthorizationStatus.APPROVED,
-                day(LedgerApplication.run(), 6, "ACC-001").authorizationStates().get("Auth-B"));
+    void criterionSevenWouldAllocateEveryInstalmentAsBhd3334() {
+        LedgerEngine engine = new LedgerEngine(List.of(new Account("B", Money.of(BHD, "0"))));
+        engine.process(LedgerCommand.allocatedCredit("E10", 5, 5,
+                "B", Money.of(BHD, "10"), 3));
+        assertEquals(List.of(Money.of(BHD, "3.334"), Money.of(BHD, "3.334"),
+                        Money.of(BHD, "3.334")),
+                engine.entries().stream().map(entry -> entry.amount()).toList());
     }
 
     private static List<LedgerEntryType> types(LedgerEngine engine) {

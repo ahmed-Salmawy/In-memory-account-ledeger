@@ -352,7 +352,7 @@ Cover at minimum:
 -   BHD 10.000 exact three-way allocation
 -   positive-only interest
 -   exact daily-interest-to-capitalization reconciliation
--   Auth-B remains active through Day 6
+-   approved holds affect available balance without changing ledger balance
 -   deterministic replay
 
 Also include the explicitly requested intentionally failing test,

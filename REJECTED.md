@@ -1,29 +1,100 @@
-# Rejected Criteria and Approaches
+# Acceptance Criteria Review
 
-## Conflicting criteria identified before implementation
+This review follows the supplied criteria in their original order. “Rejected”
+means the criterion conflicts with another explicit invariant; it does not mean
+the scenario is ignored.
 
-- **Propagating E7 fees to later affected days:** rejected by the selected
-  event-value-day policy. E7 assesses only Day 2; see AMBIGUITIES §1.
-- **Auth-B remains active in the supplied replay:** E8 encounters at most
-  AED -155.00 available before its requested AED 90.00 hold. Approval would
-  violate the nonnegative-available rule. No expiry applies to approved
-  holds, not declined requests. The implementation follows the approval rule;
-  see AMBIGUITIES §2.
-- **Three BHD 3.334 instalments:** total BHD 10.002 exceeds the source
-  amount. The implemented 3.334 + 3.333 + 3.333 allocation preserves 10.000.
+## Criterion 1 — Accepted
+
+The Day 2 closing ledger balance evaluated at the end of Day 5, before the
+overdraft fee, is AED -370.00:
+
+```text
+1200.00 - 950.00 - 620.00 = -370.00
+```
+
+E7 is posted on Day 5 but has Day 2 as its value day, so it participates in the
+Day 2 value-date projection.
+
+## Criterion 2 — Accepted under the documented interpretation
+
+E7 causes one overdraft fee on Day 2.
+
+The specification is ambiguous about whether a late back-valued command should
+trigger retrospective fees for every subsequently affected closing day. This
+implementation reconciles only the processed financial command's value day.
+See `AMBIGUITIES.md` §1.
+
+## Criterion 3 — Accepted
+
+Auth-A was approved for AED 200.00, so E5 may settle AED 185.00. The settlement
+books AED -185.00, marks Auth-A settled, and releases its complete hold.
+
+## Criterion 4 — Accepted
+
+E6 references Auth-Z, which does not exist. The settlement is rejected with
+`UNKNOWN_AUTHORIZATION` and creates no ledger movement.
+
+## Criterion 5 — Accepted
+
+An approved authorization reduces available balance without changing ledger
+balance. The criterion is conditional: **if Auth-B is approved**.
+
+In the supplied replay, Auth-B is declined because E8 has insufficient
+available funds. That outcome does not invalidate the criterion's statement
+about how an approved hold behaves.
+
+## Criterion 6 — Rejected as written
+
+The criterion says that after E9, all balances and fees return to their pre-E7
+values. The net monetary projection can return, but append-only history cannot:
+
+```text
+E7                       -620.00
+OVERDRAFT_FEE             -25.00
+E9 REVERSAL               620.00
+OVERDRAFT_FEE_REVERSAL     25.00
+```
+
+E7, its fee, E9, and the fee reversal remain permanently recorded. Therefore
+balances and net fees may reconcile to their earlier values, while ledger and
+fee history do not return to their pre-E7 state.
+
+## Criterion 7 — Rejected
+
+Three BHD 3.334 instalments create money:
+
+```text
+3.334 + 3.334 + 3.334 = 10.002
+```
+
+The implementation preserves the BHD 10.000 source total using deterministic
+minor-unit allocation:
+
+```text
+3.334 + 3.333 + 3.333 = 10.000
+```
+
+## Criterion 8 — Rejected
+
+The requirement states that rounded daily interest accruals must sum exactly
+to the capitalized total. Discarding a rounding remainder would violate that
+invariant.
+
+The implementation therefore uses:
+
+```text
+capitalized interest = sum(rounded daily accruals)
+```
+
+No remainder is discarded.
 
 ## Rejected implementation approaches
 
-- Floating-point money and silent rounding of input transfers: both can
-  alter money. Use exact BigDecimal input and explicit HALF_EVEN rounding
-  for calculated values.
-- Cached authoritative balances and mutable entries: derive balances from
-  immutable opening data plus append-only signed entries.
-- Sorting events by posted day: would move E10 before E9 and change the
-  prescribed order.
-- Separate balance service, future reference fields, and placeholder
-  authorization/fee/interest classes: add them with their behavior.
-- Frameworks, storage, and web layers: outside this assessment's scope.
-
-The contradictory Auth-B-active interpretation is retained as an explicitly
-disabled test. The runnable suite enforces the nonnegative-available rule.
+- Floating-point money and silent input rounding can alter monetary values;
+  use exact `BigDecimal` input and explicit `HALF_EVEN` calculated rounding.
+- Mutable authoritative balances can diverge from ledger history; derive them
+  from immutable opening values, append-only entries, and active holds.
+- Sorting commands by posted day changes the supplied processing order.
+- Frameworks, storage, external messaging, and web layers are outside this
+  in-memory assessment.

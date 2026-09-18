@@ -25,9 +25,10 @@ reversal.
 
 ## 2. Authorization approval and Auth-B
 
-**Conflict.** One criterion says Auth-B remains active, but the supplied
-movements leave insufficient available funds for its AED 90 hold. No
-authorization expiry or retry policy is specified.
+**Gap.** The acceptance criterion explains the effect **if Auth-B is approved**
+but does not require approval. The supplied movements leave insufficient
+available funds for its AED 90 hold. No authorization expiry or retry policy is
+specified.
 
 **Decision.** At authorization time, use the ledger balance through the
 command's posted day, subtract all currently approved holds, and approve only
@@ -36,8 +37,8 @@ without creating a hold. Approved holds do not expire, and later back-valued
 movements do not rewrite an earlier decision. An identical retry preserves the
 original result; a new attempt needs new command and authorization IDs.
 
-Under this rule Auth-B is `DECLINED`. Treating it as active would violate the
-same available-funds rule used for every other authorization.
+Under this rule Auth-B is `DECLINED`. The conditional acceptance criterion
+remains valid for any authorization that is approved.
 
 ## 3. Settlement and hold release
 
