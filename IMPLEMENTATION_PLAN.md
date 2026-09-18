@@ -45,11 +45,12 @@ Keep the account intentionally small.
 ``` text
 Account
 - accountId
-- currency
+- openingBalance: Money
 ```
 
-Do not store mutable ledger or available balances in Account. Derive
-balances from ledger entries and active holds.
+Derive currency from `openingBalance`. Do not store mutable ledger or available
+balances in Account; derive them from the immutable opening balance, ledger
+entries, and active holds.
 
 ### Currency / Money
 
