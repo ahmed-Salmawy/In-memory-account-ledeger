@@ -33,8 +33,7 @@ distribution or dependencies are missing. Build output is ignored under
 - `src/test/java/ledger/`: matching domain/service tests.
 - `DESIGN.md`, `IMPLEMENTATION_PLAN.md`, and `AMBIGUITIES.md`: architecture
   context and explicit policy decisions.
-- `NUMBERS.md`, `REJECTED.md`, and `WORKLOG.md`: numeric choices,
-  conflicting criteria/rejected approaches, and actual implementation record.
+- `NUMBERS.md` and `REJECTED.md`: numeric choices and rejected interpretations.
 
 ## Enforced invariants
 

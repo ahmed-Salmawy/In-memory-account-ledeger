@@ -7,12 +7,12 @@
 - **Auth-B remains active in the supplied replay:** E8 encounters at most
   AED -155.00 available before its requested AED 90.00 hold. Approval would
   violate the nonnegative-available rule. No expiry applies to approved
-  holds, not declined requests. Milestone 2 follows the approval rule;
+  holds, not declined requests. The implementation follows the approval rule;
   see AMBIGUITIES §2.
 - **Three BHD 3.334 instalments:** total BHD 10.002 exceeds the source
   amount. The implemented 3.334 + 3.333 + 3.333 allocation preserves 10.000.
 
-## Implementation approaches rejected in milestone 1
+## Rejected implementation approaches
 
 - Floating-point money and silent rounding of input transfers: both can
   alter money. Use exact BigDecimal input and explicit HALF_EVEN rounding

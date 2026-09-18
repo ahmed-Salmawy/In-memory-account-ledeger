@@ -2,6 +2,4 @@
 /.idea/
 *.iml
 .DS_Store
-/milestone-1.bundle
 ./IMPLEMENTATION_PLAN.md
-./AGENTS.md

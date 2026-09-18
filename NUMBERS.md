@@ -19,7 +19,7 @@
 | Value | Source and intended meaning |
 | --- | --- |
 | Days `1` through `6` | Supplied replay/reporting window. |
-| E1 `1200.00`, E2 `950.00` AED | Supplied credit and debit; milestone tests derive a net 250.00. |
+| E1 `1200.00`, E2 `950.00` AED | Supplied credit and debit; scenario tests derive a net 250.00. |
 | E3 `200.00`, E4 `400.00`, E5 `185.00`, E6 `180.00` AED | Supplied hold, credit, known settlement, and unknown settlement; no substitutions. |
 | E7 `620.00`, E8 `90.00` AED | Supplied back-valued debit and attempted hold. E9 references E7's amount rather than inventing a new one. |
 | Fee `25.00` AED | Applied once to the processed event's negative value day; BHD receives no AED fee without FX. |
@@ -34,13 +34,10 @@ filtering. They introduce no business rules.
 
 ## Toolchain versions
 
-- Java release `17`: supports records and switch expressions and matches an
-  installed JDK; no newer language features are needed.
-- Maven `3.9.11`: pins the installed/cached distribution through the wrapper.
-- Wrapper `0.5.5`: standard bootstrap available locally; reused offline,
-  not a claim that it is the newest wrapper release.
-- JUnit Jupiter `5.10.2`: cached JUnit 5 API/engine with parameterized tests;
-  test scope only.
-- Compiler plugin `3.13.0`, Surefire `3.2.5`: pinned cached versions that
-  compile with release 17 and discover JUnit Jupiter tests.
+- Java release `17`: supports the records and switch expressions used here.
+- Maven `3.9.11`: pinned through the project wrapper.
+- Wrapper `0.5.5`: bootstraps the pinned Maven distribution.
+- JUnit Jupiter `5.10.2`: test-scoped API, engine, and parameterized tests.
+- Compiler plugin `3.13.0`, Surefire `3.2.5`: compile for Java 17 and run
+  JUnit Jupiter tests.
 - Project `1.0-SNAPSHOT`: unpublished development version, not a release.

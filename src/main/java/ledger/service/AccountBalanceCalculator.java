@@ -46,7 +46,7 @@ public final class AccountBalanceCalculator {
 
     public Money availableBalance(String accountId, int day) {
         Money available = balance(accountId, day);
-        // ponytail: O(n) hold scan; index by account if replay size warrants it.
+        // O(n) hold scan; index by account if replay size warrants it.
         for (Authorization authorization : authorizations.values()) {
             if (authorization.accountId().equals(accountId) && authorization.status() == APPROVED) {
                 available = available.add(authorization.amount().negate());
@@ -72,7 +72,7 @@ public final class AccountBalanceCalculator {
             throw new IllegalArgumentException("Business day must be positive");
         }
         Money balance = account.openingBalance();
-        // ponytail: O(n) projection; index by account/value day if replay size warrants it.
+        // O(n) projection; index by account/value day if replay size warrants it.
         for (LedgerEntry entry : entries) {
             boolean fee = entry.type() == LedgerEntryType.OVERDRAFT_FEE
                     || entry.type() == LedgerEntryType.OVERDRAFT_FEE_REVERSAL;
