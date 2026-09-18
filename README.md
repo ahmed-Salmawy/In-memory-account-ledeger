@@ -22,11 +22,6 @@ Use `mvnw.cmd` on Windows. First use requires network access if the Maven
 distribution or dependencies are missing. Build output is ignored under
 `target/`; test results are in `target/surefire-reports/`.
 
-The standard Takari 0.5.5 wrapper scripts/JAR were reused from the locally
-installed VS Code Maven extension because downloads are unavailable in this
-environment. The wrapper JAR is a vendored bootstrap dependency, not project
-build output. Its Apache license headers are retained.
-
 ## Structure
 
 - `src/main/java/ledger/domain/`: accounts, money, commands, entries,
@@ -116,18 +111,3 @@ E7 assesses one Day 2 fee and does not propagate fees to Days 4–5. E9 later
 appends its reversal. Auth-B is declined because E8 has insufficient available
 funds. BHD has no AED-denominated fee, interest capitalizes per account, and
 daily reports reconstruct authorization status by day. See AMBIGUITIES §§23–25.
-
-## Commit handoff in this environment
-
-The workspace has no existing Git repository and prevents creation of
-`.git`. The milestone commit is therefore made in an isolated temporary
-checkout and exported to `milestone-1.bundle` beside this README. The bundle
-contains complete Git history; it is not itself tracked. In a writable
-location, restore it with:
-
-```sh
-git clone /absolute/path/to/milestone-1.bundle ledger-review
-```
-
-This preserves the actual commit instead of squashing or reconstructing it.
-That bundle contains milestone 1 only; subsequent workspace changes are not included.
