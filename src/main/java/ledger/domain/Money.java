@@ -1,7 +1,10 @@
 package ledger.domain;
 
 import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.math.RoundingMode;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 
 public record Money(Currency currency, BigDecimal amount) {
@@ -31,5 +34,27 @@ public record Money(Currency currency, BigDecimal amount) {
 
     public Money negate() {
         return new Money(currency, amount.negate());
+    }
+
+    /** Splits the exact minor units, assigning any residual to the earliest parts. */
+    public List<Money> allocate(int parts) {
+        if (parts < 1) {
+            throw new IllegalArgumentException("Parts must be positive");
+        }
+        BigInteger units = amount.movePointRight(currency.scale()).toBigIntegerExact();
+        BigInteger[] division = units.divideAndRemainder(BigInteger.valueOf(parts));
+        List<Money> result = new ArrayList<>(parts);
+        int residual = division[1].abs().intValueExact();
+        BigInteger step = BigInteger.valueOf(division[1].signum());
+        for (int index = 0; index < parts; index++) {
+            BigInteger part = division[0].add(index < residual ? step : BigInteger.ZERO);
+            result.add(new Money(currency, new BigDecimal(part, currency.scale())));
+        }
+        return List.copyOf(result);
+    }
+
+    @Override
+    public String toString() {
+        return currency + " " + amount.toPlainString();
     }
 }

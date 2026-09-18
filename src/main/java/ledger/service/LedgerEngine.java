@@ -1,21 +1,35 @@
 package ledger.service;
 
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.function.Consumer;
 import ledger.domain.Account;
-import ledger.domain.LedgerEntry;
-import ledger.domain.LedgerEntryType;
-import ledger.domain.LedgerEvent;
+import ledger.domain.Authorization;
+import ledger.domain.LedgerDomainEvent;
+import ledger.domain.LedgerValidationException;
 import ledger.domain.Money;
+import ledger.domain.CommandType;
+import ledger.domain.LedgerCommand;
+import ledger.domain.LedgerEntry;
 
-/** Single-threaded posting in caller order, with balances derived on demand. */
+import static ledger.domain.LedgerValidationException.Code.CONFLICTING_EVENT_ID;
+import static ledger.domain.LedgerValidationException.Code.CURRENCY_MISMATCH;
+
+/** Single-threaded orchestration in caller order; behavior lives in focused processors. */
 public final class LedgerEngine {
-    private final Map<String, Account> accounts = new HashMap<>();
-    private final Map<String, LedgerEvent> processedEvents = new HashMap<>();
+    private final Map<String, Account> accounts = new LinkedHashMap<>();
+    private final Map<String, LedgerCommand> processedCommands = new LinkedHashMap<>();
     private final List<LedgerEntry> entries = new ArrayList<>();
+    private final Map<String, Authorization> authorizations = new LinkedHashMap<>();
+    private final AccountBalanceCalculator balances;
+    private final TransactionProcessor transactions;
+    private final AuthorizationProcessor authorizationProcessor;
+    private final OverdraftFeeProcessor fees;
+    private final InterestProcessor interest;
+    private final InMemoryEventPublisher eventPublisher = new InMemoryEventPublisher();
 
     public LedgerEngine(List<Account> accounts) {
         for (Account account : accounts) {
@@ -23,60 +37,100 @@ public final class LedgerEngine {
                 throw new IllegalArgumentException("Duplicate account: " + account.accountId());
             }
         }
+        balances = new AccountBalanceCalculator(this.accounts, entries, authorizations);
+        transactions = new TransactionProcessor(entries, processedCommands);
+        authorizationProcessor = new AuthorizationProcessor(authorizations, balances, transactions);
+        fees = new OverdraftFeeProcessor(entries, balances);
+        interest = new InterestProcessor(List.copyOf(this.accounts.values()), entries, balances);
+        eventPublisher.subscribe(LedgerDomainEvent.MovementProcessed.class, movement ->
+                fees.reconcile(movement.command().accountId(), movement.command().valueDay())
+                        .ifPresent(entry -> eventPublisher.publish(
+                                new LedgerDomainEvent.OverdraftFeeProcessed(entry))));
     }
 
-    public void process(LedgerEvent event) {
-        Objects.requireNonNull(event, "event");
-        LedgerEvent previous = processedEvents.get(event.eventId());
+    public void process(LedgerCommand command) {
+        Objects.requireNonNull(command, "command");
+        try {
+            processValid(command);
+        } catch (LedgerValidationException exception) {
+            eventPublisher.publish(new LedgerDomainEvent.ProcessingRejected(
+                    command, exception.code(), exception.getMessage()));
+            throw exception;
+        }
+    }
+
+    private void processValid(LedgerCommand command) {
+        LedgerCommand previous = processedCommands.get(command.eventId());
         if (previous != null) {
-            if (!previous.equals(event)) {
-                throw new IllegalArgumentException("Conflicting event ID: " + event.eventId());
+            if (!previous.equals(command)) {
+                throw new LedgerValidationException(CONFLICTING_EVENT_ID,
+                        "Conflicting event ID: " + command.eventId());
             }
             return;
         }
-        Account account = account(event.accountId());
-        if (account.currency() != event.amount().currency()) {
-            throw new IllegalArgumentException("Event currency differs from account currency");
+        Account account = balances.account(command.accountId());
+        if (command.type() != CommandType.REVERSAL && account.currency() != command.amount().currency()) {
+            throw new LedgerValidationException(CURRENCY_MISMATCH,
+                    "Command currency differs from account currency");
         }
-        LedgerEntryType type = switch (event.type()) {
-            case CREDIT -> LedgerEntryType.CREDIT;
-            case DEBIT -> LedgerEntryType.DEBIT;
+        LedgerDomainEvent processed = switch (command.type()) {
+            case CREDIT -> new LedgerDomainEvent.CreditProcessed(
+                    command, transactions.credit(command));
+            case DEBIT -> new LedgerDomainEvent.DebitProcessed(
+                    command, List.of(transactions.debit(command)));
+            case AUTHORIZATION -> new LedgerDomainEvent.AuthorizationProcessed(
+                    command, authorizationProcessor.authorize(command));
+            case SETTLEMENT -> {
+                AuthorizationProcessor.SettlementResult result = authorizationProcessor.settle(command);
+                yield new LedgerDomainEvent.SettlementProcessed(
+                        command, List.of(result.entry()), result.authorization());
+            }
+            case REVERSAL -> new LedgerDomainEvent.ReversalProcessed(
+                    command, transactions.reverse(command));
         };
-        Money signedAmount = switch (event.type()) {
-            case CREDIT -> event.amount();
-            case DEBIT -> event.amount().negate();
-        };
-        LedgerEntry entry = new LedgerEntry("event:" + event.eventId(), event.eventId(),
-                event.accountId(), signedAmount, event.valueDay(), type);
-        entries.add(entry);
-        processedEvents.put(event.eventId(), event);
+        processedCommands.put(command.eventId(), command);
+        eventPublisher.publish(processed);
     }
 
-    /** Projects currently known entries by value day, not by posted-day visibility. */
     public Money balance(String accountId, int day) {
-        Account account = account(accountId);
-        if (day < 1) {
-            throw new IllegalArgumentException("Business day must be positive");
-        }
-        Money balance = account.openingBalance();
-        // ponytail: O(n) projection; index by account/value day if replay size warrants it.
-        for (LedgerEntry entry : entries) {
-            if (entry.accountId().equals(accountId) && entry.valueDay() <= day) {
-                balance = balance.add(entry.amount());
-            }
-        }
-        return balance;
+        return balances.balance(accountId, day);
+    }
+
+    public Money availableBalance(String accountId, int day) {
+        return balances.availableBalance(accountId, day);
+    }
+
+    public Money reportedAvailableBalance(String accountId, int day) {
+        return balances.reportedAvailableBalance(accountId, day);
+    }
+
+    public Money dailyInterest(String accountId, int day) {
+        return interest.dailyInterest(accountId, day);
+    }
+
+    public void capitalizeInterest(int firstDay, int lastDay) {
+        interest.capitalize(firstDay, lastDay).forEach(entry ->
+                eventPublisher.publish(new LedgerDomainEvent.InterestCapitalized(entry)));
+    }
+
+    public <E extends LedgerDomainEvent> void on(Class<E> eventType,
+                                                  Consumer<? super E> subscriber) {
+        eventPublisher.subscribe(eventType, subscriber);
+    }
+
+    public List<InMemoryEventPublisher.DeliveryFailure> eventDeliveryFailures() {
+        return eventPublisher.failures();
     }
 
     public List<LedgerEntry> entries() {
         return List.copyOf(entries);
     }
 
-    private Account account(String accountId) {
-        Account account = accounts.get(accountId);
-        if (account == null) {
-            throw new IllegalArgumentException("Unknown account: " + accountId);
-        }
-        return account;
+    public List<Authorization> authorizations() {
+        return List.copyOf(authorizations.values());
+    }
+
+    public List<Account> accounts() {
+        return List.copyOf(accounts.values());
     }
 }

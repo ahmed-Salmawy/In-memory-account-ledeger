@@ -41,11 +41,102 @@ from the architecture discussion.
   there and exported as `milestone-1.bundle`, retaining actual Git history.
   Build output and the bundle itself are excluded from that commit.
 
-## Decisions awaiting review
+## 2026-09-18T06:31:40Z — Authorization milestone implemented and verified
 
-- Daily overdraft rule versus the single-Day-2-fee criterion.
-- Negative available balance at E8 versus the requirement for active Auth-B.
-- AED fee treatment for BHD and whether capitalization means one per account.
-- Historical report/hold snapshots versus current-known value-day projections.
-- The planned deliberately failing interpretation test stays deferred until
-  the relevant policy is selected; this milestone's suite passes normally.
+- Added immutable Authorization records with APPROVED/DECLINED statuses,
+  authorization event references, and current available-balance projection.
+  Approved holds reserve funds without ledger entries; declines are retained.
+- Reused event deduplication for both decisions. Added the
+  DUPLICATE_AUTHORIZATION_ID business error; rejected requests do not consume
+  event or authorization IDs. Exposed immutable ordered authorization snapshots.
+- Documented posted-day approval, current-hold query semantics, and precedence
+  of the nonnegative-available approval rule over the conflicting Auth-B
+  expectation in AMBIGUITIES §23. Settlement remains the next milestone.
+- Added 13 authorization test cases covering exact funds/BHD precision,
+  insufficient funds, retries, invalid input, duplicate IDs, account isolation,
+  nonchronological requests, back-valued debits, no expiry, and deterministic replay.
+- `JAVA_HOME=/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home
+  ./mvnw -o test` completed on JDK 17: **45 tests, 0 failures, 0 errors,
+  0 skipped; BUILD SUCCESS**. No new dependencies were added.
+- Changes are in the workspace; the existing milestone-1 bundle is unchanged.
+
+## 2026-09-18T06:35:14Z — Settlement milestone implemented and verified
+
+- Added SETTLEMENT events/entries and SETTLED authorization status. Successful
+  settlement books the requested debit, links it to the authorization, and
+  releases the entire hold, including the unused portion of a smaller capture.
+- Added business error codes for unknown authorizations, account mismatch,
+  non-approved status, and over-capture. Validation precedes mutation, and
+  rejected events remain retryable. Existing event deduplication prevents
+  repeated captures; replaying the original authorization cannot reopen it.
+- Documented settlement policy and current-state hold projection in
+  AMBIGUITIES §24. Reversal is the next milestone; structured error collection
+  remains part of reporting. No new dependencies were added.
+- Added 12 settlement test cases covering smaller/exact captures, unknown or
+  declined authorizations, account/currency mismatch, over-capture, retries,
+  unchanged rejection state, BHD precision, snapshots, back-valued settlement,
+  subsequent insufficient funds, validation, and deterministic replay.
+- `JAVA_HOME=/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home
+  ./mvnw -o test` completed on JDK 17: **57 tests, 0 failures, 0 errors,
+  0 skipped; BUILD SUCCESS**. Changes remain in the workspace.
+
+## 2026-09-18T06:59:26Z — Remaining milestones completed
+
+- Added append-only event reversals with account/reference validation and
+  exact compensation of allocated multi-entry events.
+- Implemented the selected event-value-day fee policy: AED 25.00 on the
+  processed negative day only, plus append-only fee reversal after correction.
+  BHD accounts receive no AED fee because FX is out of scope.
+- Added exact minor-unit allocation, daily positive-balance interest, one
+  Day 6 capitalization per account, structured replay errors, immutable daily
+  reports, and the runnable E1–E10 application.
+- Full replay produces Day 6 AED 466.03 and BHD 10.008, reports E6 as
+  UNKNOWN_AUTHORIZATION without movement, and declines Auth-B under the
+  nonnegative-available rule. The conflicting active-Auth-B criterion remains
+  as one explicitly disabled interpretation test.
+- `./mvnw -o test`: **63 tests, 0 failures, 0 errors, 1 intentionally skipped**.
+
+## Decisions awaiting production confirmation
+
+- Whether a production product wants propagated historical daily fees instead
+  of the selected event-value-day assessment.
+- Whether BHD overdrafts should have a local-currency fee or an FX policy.
+
+## 2026-09-18 — Domain package refactor
+
+- Grouped the flat domain package into account, authorization, error, money,
+  and transaction packages. Moved MoneyTest to its matching package and
+  updated all application, service, report, and test imports without changing
+  ledger behavior.
+
+## 2026-09-18 — LedgerEngine responsibility refactor
+
+- Reduced LedgerEngine to validation, idempotency, dispatch, and public query
+  delegation. Extracted concrete account-balance, authorization, transaction,
+  overdraft-fee, and interest processors into matching service subpackages.
+- Reused the same in-memory maps and append-only entry list; no interfaces,
+  factories, duplicate state, dependencies, or behavioral changes were added.
+
+## 2026-09-18 — Internal domain events
+
+- Added typed events for completed movements, authorization decisions, fees,
+  interest capitalization, and business rejections. Events publish only after
+  their state change; identical retries remain silent.
+- Moved fee reconciliation behind the common movement subscription. Delivery
+  is synchronous and ordered, with listener failures retained without undoing
+  ledger state or blocking other listeners.
+- Added five event-flow tests for settlement visibility, nested fee ordering,
+  retry/rejection behavior, listener isolation, and interest idempotency.
+- `./mvnw test`: **68 tests, 0 failures, 0 errors, 1 intentionally skipped**.
+
+## 2026-09-18 — Command/event terminology
+
+- Renamed incoming `LedgerEvent`/`EventType` to `LedgerCommand`/`CommandType`.
+  Processors execute commands directly; past-tense domain events publish only
+  after command processing changes state.
+
+## 2026-09-18 — Package flattening
+
+- Preserved every domain and processor class while removing one-class nested
+  packages. Domain types now live in `ledger.domain`; engine, replay, event
+  delivery, and processors live in `ledger.service`.

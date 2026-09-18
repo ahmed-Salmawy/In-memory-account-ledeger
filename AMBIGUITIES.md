@@ -30,10 +30,10 @@ propagate through every subsequent daily close.
 
 ### Chosen interpretation
 
-Treat this as an explicit acceptance-criteria conflict rather than
-silently generalizing the fee to later days. Implement the chosen rule
-consistently and document the conflicting criterion in `REJECTED.md` if
-mathematical replay shows it cannot satisfy the core rule.
+Reconcile only the processed financial event's value day. E7 therefore
+assesses a fee only on Day 2; its back-valued effect does not trigger new
+Day 4 or Day 5 fees. A later event affecting Day 2 can reverse or reassess
+that Day 2 fee according to the recalculated pre-fee balance.
 
 ### Production resolution
 
@@ -359,8 +359,11 @@ the booked sign. Zero or negative input transfers are rejected.
 An identical successfully posted event is a no-op on retry. Reusing its ID
 with different content is rejected rather than silently dropping a different
 transfer. Invalid input must leave entries and deduplication state unchanged.
-Milestone 1 exposes validation exceptions to its Java caller; structured
-ProcessingError collection belongs to the later replay/reporting milestone.
+Milestone 1 exposes `LedgerValidationException` with `UNKNOWN_ACCOUNT`,
+`CONFLICTING_EVENT_ID`, or `CURRENCY_MISMATCH` codes for business rejections.
+Basic argument checks and duplicate account configuration retain standard
+Java exceptions. The completed replay layer collects business rejections as
+structured ProcessingError records.
 
 ## 21. Event Order, Day Queries, and Incremental Models
 
@@ -380,5 +383,117 @@ Balance projection stays in LedgerEngine until another component needs it.
 The fee is denominated in AED, but ACC-002 uses BHD and FX is excluded.
 The BHD overdraft policy is unspecified. Also, one capitalization credit
 cannot combine AED and BHD; clarify whether “ONE” means one per account.
-These do not affect the first milestone and remain open for the fee/interest
-review. No conversion rate or multi-currency posting is invented.
+Do not charge an AED-denominated fee to a BHD account because no FX policy
+exists. Capitalize interest once per account so every entry remains in one
+currency. No conversion rate or multi-currency posting is invented.
+
+## 23. Milestone 2: Authorization Holds
+
+An immutable `Authorization` record represents the hold and its decision.
+`APPROVED` reserves funds; `DECLINED` records the attempt without reserving
+funds. Currency comes from its Money amount. Milestone 3 adds settlement and
+its `SETTLED` status (see §24); there is no expiry.
+
+Approval uses the ledger balance through the request's `postedDay`, minus
+all currently approved holds for that account, minus the requested amount.
+Approve when the result is nonnegative, including exactly zero. The event's
+`valueDay` does not backdate a hold; `createdDay` is its `postedDay`.
+
+`availableBalance(accountId, day)` projects currently known ledger entries
+through that value day and subtracts all current approved holds. It is not
+a historical hold snapshot. Even if requests arrive with decreasing posted
+days, earlier-processed approved holds still reserve funds. Back-valued
+ledger changes can make available funds negative but do not retroactively
+revoke an approval or approve a decline.
+
+Authorization IDs are unique across the engine, including declined records.
+Another event using an existing authorization ID raises
+`LedgerValidationException` with `DUPLICATE_AUTHORIZATION_ID` and consumes
+neither ID. Identical event retries retain the original decision, including
+declines after later funding; a fresh attempt requires fresh event and
+authorization IDs. Invalid account/currency requests leave no record.
+
+For the Auth-B conflict in §17, the nonnegative-available approval rule takes
+precedence. No-expiry applies only to approved requests. The completed E1–E10
+replay enforces this rule and retains the alternative interpretation as a
+disabled test.
+
+## 24. Milestone 3: Settlement Validation and Hold Release
+
+A positive settlement must reference a currently approved authorization
+belonging to its account and use that account's currency. Its amount cannot
+exceed the authorized amount. In accordance with §§9–10, even a smaller
+settlement completes the authorization: book only the settled amount as a
+negative SETTLEMENT entry and release the entire hold. Retain the original
+authorization amount and creation day in the replacement SETTLED record.
+The ledger entry carries the authorization ID for audit linkage.
+
+Business rejections use LedgerValidationException codes:
+
+- `UNKNOWN_AUTHORIZATION`: no record exists for the reference.
+- `AUTHORIZATION_ACCOUNT_MISMATCH`: the authorization belongs to another account.
+- `AUTHORIZATION_NOT_APPROVED`: the authorization is DECLINED or SETTLED.
+- `SETTLEMENT_EXCEEDS_AUTHORIZATION`: the amount exceeds the original hold.
+
+Existing unknown-account/currency checks run first. Basic input validation
+continues to use standard Java exceptions. All validation precedes mutation;
+rejections preserve ledger entries, holds, and event-ID availability.
+The replay layer collects these exceptions as structured ProcessingError records.
+
+An identical settlement retry is a no-op. A new event attempting a second
+capture is rejected even when the first capture used less than the hold.
+Retrying the original authorization after settlement cannot reactivate it,
+and its authorization ID cannot be reused.
+
+Settlement honors the approved authorization even if subsequent ledger
+movements have reduced funds; it does not repeat the original approval check.
+Caller order remains authoritative, and the debit uses the settlement's
+value day. No extra chronological restriction is imposed on posted/value
+days. Available-balance queries continue to use current hold state: once
+settled, a hold is excluded for every queried day, rather than reconstructing
+a historical hold snapshot.
+
+## 25. Completed Replay, Fees, Interest, Allocation, and Reporting
+
+Reversal events carry a referenced event ID and no caller-supplied amount.
+They append the exact opposite of each CREDIT, DEBIT, or SETTLEMENT entry
+created by that event. The reversal uses its own value day, cannot cross
+accounts, and each source event can be reversed once. It does not reopen a
+settled authorization. Fee reconciliation then runs for the reversal's value
+day and appends a fee reversal when the pre-fee balance is no longer negative.
+
+Every financial command reconciles only its own value day, implementing §1.
+Fee eligibility ignores fee and fee-reversal entries so the fee cannot trigger
+itself. AED accounts receive AED 25.00; BHD accounts receive no fee under §22.
+
+Daily interest is `max(closing balance, 0) × 0.0004`, rounded HALF_EVEN at
+currency precision after fee reconciliation and before capitalization. Day 6
+gets one capitalization entry per account equal to the exact sum of Day 1–6
+rounded accruals. Calling capitalization again is a no-op.
+
+Credit instalments allocate integer minor units evenly, assigning residual
+units to the earliest parts. E10 is therefore 3.334 + 3.333 + 3.333 BHD.
+
+Replay catches LedgerValidationException instances as ProcessingError records;
+direct engine callers still receive the exception. Daily reports use final
+value-day ledger projections and reconstruct authorization status by created
+and settled day. The supplied nonchronological caller order remains unchanged.
+The contradictory Auth-B-active expectation is retained as a disabled test;
+the executable rule declines Auth-B as decided in §23.
+
+## 26. Internal Domain Event Delivery
+
+The engine publishes immutable typed facts after successfully processing
+authorization, credit, debit, settlement, reversal, fee, and interest state
+changes. Fee
+reconciliation subscribes to the shared financial-movement event, so each
+movement is assessed through one path. Identical retries publish nothing;
+business rejections publish `ProcessingRejected` and still throw their
+`LedgerValidationException` to direct callers.
+
+Delivery is synchronous, ordered, and in-memory. An event reaches every
+matching listener before an event raised by one of those listeners is
+delivered. Listener failures are retained by the engine, do not undo already
+committed ledger state, and do not prevent later listeners from running. No
+external broker, persistence abstraction, asynchronous execution, retry
+queue, or factory is introduced because they are outside this assessment.

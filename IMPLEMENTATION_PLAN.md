@@ -60,12 +60,12 @@ Use `BigDecimal` with explicit currency scale and rounding policy.
 
 Never use `double` or `float`.
 
-### LedgerEvent
+### LedgerCommand
 
-Represents an input event from the supplied stream.
+Represents an input command from the supplied stream.
 
 ``` text
-LedgerEvent
+LedgerCommand
 - eventId
 - postedDay
 - valueDay
@@ -77,7 +77,7 @@ LedgerEvent
 - referencedEventId?     // reversal
 ```
 
-Event types:
+Command types:
 
 ``` text
 CREDIT
@@ -291,8 +291,8 @@ Do not create three `3.334` entries because that totals `10.002`.
 domain/
   Account.java
   Currency.java
-  LedgerEvent.java
-  EventType.java
+  LedgerCommand.java
+  CommandType.java
   LedgerEntry.java
   LedgerEntryType.java
   Authorization.java

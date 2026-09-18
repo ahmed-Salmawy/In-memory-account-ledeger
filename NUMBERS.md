@@ -9,11 +9,12 @@
 | `HALF_EVEN` | The rounding policy chosen in AMBIGUITIES §7; exact ties choose the even last digit. |
 | `UNNECESSARY` on input | Reject precision loss rather than silently changing an instructed transfer; extra trailing zeros are exact. |
 | Amount sign `> 0` | Input transfers are magnitudes; event type determines the posting direction. |
-| CREDIT sign `1`, DEBIT sign `-1` | Signed booked amounts implement addition/subtraction in the balance projection. |
+| CREDIT/fee reversal/interest sign `1`; DEBIT/SETTLEMENT/fee sign `-1` | Signed booked amounts implement addition/subtraction; REVERSAL uses the opposite source sign. |
 | First valid day `1` | The assessment uses one-based abstract business days. No maximum is invented in the reusable records. |
 | Opening AED `0.00`, BHD `0.000` | Supplied account configuration, not defaults hardcoded into the engine. |
+| Available after hold `>= 0` | Approve an authorization only when current available funds cover the full amount; zero remaining is valid. |
 
-## Assessment values reserved for later milestones
+## Assessment fixture values
 
 | Value | Source and intended meaning |
 | --- | --- |
@@ -21,13 +22,12 @@
 | E1 `1200.00`, E2 `950.00` AED | Supplied credit and debit; milestone tests derive a net 250.00. |
 | E3 `200.00`, E4 `400.00`, E5 `185.00`, E6 `180.00` AED | Supplied hold, credit, known settlement, and unknown settlement; no substitutions. |
 | E7 `620.00`, E8 `90.00` AED | Supplied back-valued debit and attempted hold. E9 references E7's amount rather than inventing a new one. |
-| Fee `25.00` AED | Supplied once-per-negative-day fee; historical scope and BHD treatment remain unresolved. |
+| Fee `25.00` AED | Applied once to the processed event's negative value day; BHD receives no AED fee without FX. |
 | Daily rate `0.0004` | Exactly 0.04 / 100, with no annualization or compounding invented. |
 | Capitalization day `6` | Supplied end of window; capitalization must sum individually rounded accruals. |
 | E10 `10.000` BHD, `3` instalments | Supplied total/count; base 3.333 leaves 0.001 allocated to the first instalment: 3.334, 3.333, 3.333. |
 
-These are documented requirements, not implemented fee/interest/allocation
-behavior. Other small amounts in unit tests are synthetic fixtures: 0.10 +
+These values are implemented by the E1–E10 scenario. Other small amounts in unit tests are synthetic fixtures: 0.10 +
 0.20 checks decimal arithmetic; 1.225/1.235 and 1.2345/1.2355 check ties in
 both currency scales; 50 + 20 - 10 checks nonzero opening balance and day
 filtering. They introduce no business rules.
