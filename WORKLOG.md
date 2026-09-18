@@ -11,7 +11,7 @@ from the architecture discussion.
   workspace contained only these documents and no Git repository.
 - Explained the proposed domain/service structure, invariants, and the
   fee-count/Auth-B contradictions before writing implementation code.
-  Added findings and choices in AMBIGUITIES §§17–22 and REJECTED.md.
+  Added implementation findings and choices to AMBIGUITIES.md and REJECTED.md.
 - Chose Java release 17, Maven 3.9.11, and test-scoped JUnit 5.10.2.
   Reused a cached standard Maven wrapper because Maven Central DNS lookup
   failed. Verified the wrapper launches Maven 3.9.11.
@@ -51,7 +51,7 @@ from the architecture discussion.
   event or authorization IDs. Exposed immutable ordered authorization snapshots.
 - Documented posted-day approval, current-hold query semantics, and precedence
   of the nonnegative-available approval rule over the conflicting Auth-B
-  expectation in AMBIGUITIES §23. Settlement remains the next milestone.
+  expectation now summarized in AMBIGUITIES §2. Settlement remained the next milestone.
 - Added 13 authorization test cases covering exact funds/BHD precision,
   insufficient funds, retries, invalid input, duplicate IDs, account isolation,
   nonchronological requests, back-valued debits, no expiry, and deterministic replay.
@@ -70,7 +70,7 @@ from the architecture discussion.
   rejected events remain retryable. Existing event deduplication prevents
   repeated captures; replaying the original authorization cannot reopen it.
 - Documented settlement policy and current-state hold projection in
-  AMBIGUITIES §24. Reversal is the next milestone; structured error collection
+  AMBIGUITIES §3. Reversal was the next milestone; structured error collection
   remains part of reporting. No new dependencies were added.
 - Added 12 settlement test cases covering smaller/exact captures, unknown or
   declined authorizations, account/currency mismatch, over-capture, retries,

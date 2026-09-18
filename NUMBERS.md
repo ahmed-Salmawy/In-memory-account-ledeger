@@ -6,7 +6,7 @@
 | --- | --- |
 | AED scale `2` | The required smallest representable AED amount is 0.01. |
 | BHD scale `3` | The required smallest representable BHD amount is 0.001. |
-| `HALF_EVEN` | The rounding policy chosen in AMBIGUITIES §7; exact ties choose the even last digit. |
+| `HALF_EVEN` | The rounding policy chosen in AMBIGUITIES §5; exact ties choose the even last digit. |
 | `UNNECESSARY` on input | Reject precision loss rather than silently changing an instructed transfer; extra trailing zeros are exact. |
 | Amount sign `> 0` | Input transfers are magnitudes; event type determines the posting direction. |
 | CREDIT/fee reversal/interest sign `1`; DEBIT/SETTLEMENT/fee sign `-1` | Signed booked amounts implement addition/subtraction; REVERSAL uses the opposite source sign. |

@@ -110,4 +110,4 @@ The selected fee policy reconciles only the processed event's value day, so
 E7 assesses one Day 2 fee and does not propagate fees to Days 4–5. E9 later
 appends its reversal. Auth-B is declined because E8 has insufficient available
 funds. BHD has no AED-denominated fee, interest capitalizes per account, and
-daily reports reconstruct authorization status by day. See AMBIGUITIES §§23–25.
+daily reports reconstruct authorization status by day. See AMBIGUITIES §§1–5.

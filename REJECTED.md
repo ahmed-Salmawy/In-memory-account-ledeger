@@ -3,12 +3,12 @@
 ## Conflicting criteria identified before implementation
 
 - **Propagating E7 fees to later affected days:** rejected by the selected
-  event-value-day policy. E7 assesses only Day 2; see AMBIGUITIES §§1 and 25.
+  event-value-day policy. E7 assesses only Day 2; see AMBIGUITIES §1.
 - **Auth-B remains active in the supplied replay:** E8 encounters at most
   AED -155.00 available before its requested AED 90.00 hold. Approval would
   violate the nonnegative-available rule. No expiry applies to approved
   holds, not declined requests. Milestone 2 follows the approval rule;
-  see AMBIGUITIES §23.
+  see AMBIGUITIES §2.
 - **Three BHD 3.334 instalments:** total BHD 10.002 exceeds the source
   amount. The implemented 3.334 + 3.333 + 3.333 allocation preserves 10.000.
 

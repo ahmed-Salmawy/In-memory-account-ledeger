@@ -130,7 +130,7 @@ class LedgerCompletionTest {
         assertTrue(report.render().contains("errors=[UNKNOWN_AUTHORIZATION]"));
     }
 
-    @Disabled("Conflicts with the nonnegative-available approval rule; AMBIGUITIES §17 and §23")
+    @Disabled("Conflicts with the nonnegative-available approval rule; AMBIGUITIES §2")
     @Test
     void alternativeCriterionWouldKeepAuthBActive() {
         assertEquals(AuthorizationStatus.APPROVED,
