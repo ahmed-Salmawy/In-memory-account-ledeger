@@ -7,7 +7,9 @@ import org.junit.jupiter.params.provider.CsvSource;
 
 import static ledger.domain.Currency.AED;
 import static ledger.domain.Currency.BHD;
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertAll;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class MoneyTest {
     @ParameterizedTest

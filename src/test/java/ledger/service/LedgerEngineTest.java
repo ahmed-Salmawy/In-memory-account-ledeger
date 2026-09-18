@@ -11,12 +11,17 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
-import static ledger.domain.LedgerValidationException.Code.*;
+import static ledger.domain.LedgerValidationException.Code.CONFLICTING_EVENT_ID;
+import static ledger.domain.LedgerValidationException.Code.CURRENCY_MISMATCH;
+import static ledger.domain.LedgerValidationException.Code.UNKNOWN_ACCOUNT;
 import static ledger.domain.Currency.AED;
 import static ledger.domain.Currency.BHD;
 import static ledger.domain.CommandType.CREDIT;
 import static ledger.domain.CommandType.DEBIT;
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertAll;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class LedgerEngineTest {
     private final Account account = new Account("ACC-001", Money.of(AED, "0"));

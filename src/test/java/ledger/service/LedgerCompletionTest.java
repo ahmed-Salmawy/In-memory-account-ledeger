@@ -13,13 +13,22 @@ import ledger.report.ReplayReport;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
-import static ledger.domain.LedgerValidationException.Code.*;
-import static ledger.domain.Currency.*;
-import static ledger.domain.CommandType.*;
+import static ledger.domain.LedgerValidationException.Code.EVENT_ACCOUNT_MISMATCH;
+import static ledger.domain.LedgerValidationException.Code.EVENT_ALREADY_REVERSED;
+import static ledger.domain.LedgerValidationException.Code.EVENT_NOT_REVERSIBLE;
+import static ledger.domain.LedgerValidationException.Code.UNKNOWN_AUTHORIZATION;
+import static ledger.domain.LedgerValidationException.Code.UNKNOWN_EVENT;
+import static ledger.domain.Currency.AED;
+import static ledger.domain.Currency.BHD;
+import static ledger.domain.CommandType.AUTHORIZATION;
+import static ledger.domain.CommandType.CREDIT;
+import static ledger.domain.CommandType.DEBIT;
 import static ledger.domain.LedgerEntryType.INTEREST_CAPITALIZATION;
 import static ledger.domain.LedgerEntryType.OVERDRAFT_FEE;
 import static ledger.domain.LedgerEntryType.OVERDRAFT_FEE_REVERSAL;
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class LedgerCompletionTest {
     @Test

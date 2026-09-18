@@ -10,11 +10,21 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
-import static ledger.domain.AuthorizationStatus.*;
-import static ledger.domain.LedgerValidationException.Code.*;
-import static ledger.domain.Currency.*;
-import static ledger.domain.CommandType.*;
-import static org.junit.jupiter.api.Assertions.*;
+import static ledger.domain.AuthorizationStatus.APPROVED;
+import static ledger.domain.AuthorizationStatus.DECLINED;
+import static ledger.domain.LedgerValidationException.Code.CONFLICTING_EVENT_ID;
+import static ledger.domain.LedgerValidationException.Code.CURRENCY_MISMATCH;
+import static ledger.domain.LedgerValidationException.Code.DUPLICATE_AUTHORIZATION_ID;
+import static ledger.domain.LedgerValidationException.Code.UNKNOWN_ACCOUNT;
+import static ledger.domain.Currency.AED;
+import static ledger.domain.Currency.BHD;
+import static ledger.domain.CommandType.AUTHORIZATION;
+import static ledger.domain.CommandType.CREDIT;
+import static ledger.domain.CommandType.DEBIT;
+import static org.junit.jupiter.api.Assertions.assertAll;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class AuthorizationTest {
     private final List<Account> accounts = List.of(

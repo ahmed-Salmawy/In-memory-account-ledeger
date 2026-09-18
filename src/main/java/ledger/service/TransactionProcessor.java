@@ -10,7 +10,10 @@ import ledger.domain.LedgerEntry;
 import ledger.domain.LedgerEntryType;
 import ledger.domain.LedgerCommand;
 
-import static ledger.domain.LedgerValidationException.Code.*;
+import static ledger.domain.LedgerValidationException.Code.EVENT_ACCOUNT_MISMATCH;
+import static ledger.domain.LedgerValidationException.Code.EVENT_ALREADY_REVERSED;
+import static ledger.domain.LedgerValidationException.Code.EVENT_NOT_REVERSIBLE;
+import static ledger.domain.LedgerValidationException.Code.UNKNOWN_EVENT;
 
 public final class TransactionProcessor {
     private final List<LedgerEntry> entries;

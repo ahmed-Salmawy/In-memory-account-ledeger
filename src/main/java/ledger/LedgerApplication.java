@@ -9,7 +9,10 @@ import ledger.service.LedgerReplay;
 
 import static ledger.domain.Currency.AED;
 import static ledger.domain.Currency.BHD;
-import static ledger.domain.CommandType.*;
+import static ledger.domain.CommandType.AUTHORIZATION;
+import static ledger.domain.CommandType.CREDIT;
+import static ledger.domain.CommandType.DEBIT;
+import static ledger.domain.CommandType.SETTLEMENT;
 
 public final class LedgerApplication {
     private LedgerApplication() {

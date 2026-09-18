@@ -8,8 +8,14 @@ import ledger.domain.Money;
 import ledger.domain.LedgerCommand;
 import ledger.domain.LedgerEntry;
 
-import static ledger.domain.AuthorizationStatus.*;
-import static ledger.domain.LedgerValidationException.Code.*;
+import static ledger.domain.AuthorizationStatus.APPROVED;
+import static ledger.domain.AuthorizationStatus.DECLINED;
+import static ledger.domain.AuthorizationStatus.SETTLED;
+import static ledger.domain.LedgerValidationException.Code.AUTHORIZATION_ACCOUNT_MISMATCH;
+import static ledger.domain.LedgerValidationException.Code.AUTHORIZATION_NOT_APPROVED;
+import static ledger.domain.LedgerValidationException.Code.DUPLICATE_AUTHORIZATION_ID;
+import static ledger.domain.LedgerValidationException.Code.SETTLEMENT_EXCEEDS_AUTHORIZATION;
+import static ledger.domain.LedgerValidationException.Code.UNKNOWN_AUTHORIZATION;
 
 public final class AuthorizationProcessor {
     private final Map<String, Authorization> authorizations;
