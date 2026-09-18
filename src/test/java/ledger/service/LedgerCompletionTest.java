@@ -10,7 +10,7 @@ import ledger.domain.LedgerEntryType;
 import ledger.domain.LedgerCommand;
 import ledger.report.DailyReport;
 import ledger.report.ReplayReport;
-import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import static ledger.domain.LedgerValidationException.Code.EVENT_ACCOUNT_MISMATCH;
@@ -130,7 +130,7 @@ class LedgerCompletionTest {
         assertTrue(report.render().contains("errors=[UNKNOWN_AUTHORIZATION]"));
     }
 
-    @Disabled("Acceptance criterion 7 conflicts with exact BHD allocation; see REJECTED.md")
+    @DisplayName("Intentional failure: criterion 7 creates BHD 0.002")
     @Test
     void criterionSevenWouldAllocateEveryInstalmentAsBhd3334() {
         LedgerEngine engine = new LedgerEngine(List.of(new Account("B", Money.of(BHD, "0"))));
