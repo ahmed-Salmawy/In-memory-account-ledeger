@@ -55,9 +55,10 @@ caused and the reversal E9 produced.
 ## Structure
 
 - `src/main/java/ledger/domain/`: accounts, money, entries, authorizations,
-  domain enums, exceptions, and the append-only entry book.
+  domain enums, and exceptions. Immutable values only; nothing here depends on
+  the service layer.
 - `src/main/java/ledger/service/command/`: command model, one typed handler per
-  command type, and routing.
+  command type, routing, and the append-only entry book.
 - `src/main/java/ledger/service/daily/`: calendar-driven postings — overdraft
   fee reconciliation and interest accrual with capitalization.
 - `src/main/java/ledger/service/`: engine, context and wiring, replay, and
@@ -69,6 +70,8 @@ caused and the reversal E9 produced.
 - `DESIGN.md`, `IMPLEMENTATION_PLAN.md`, and `AMBIGUITIES.md`: architecture
   context and explicit policy decisions.
 - `NUMBERS.md` and `REJECTED.md`: numeric choices and acceptance decisions.
+- `PRODUCTION_CONSIDERATIONS.md`: behaviour at scale, value-dating consequences,
+  authorization lifecycle, regulatory obligations, and what was deliberately cut.
 - `WORKLOG.md`: timestamped implementation and verification milestones.
 
 ## Enforced invariants
