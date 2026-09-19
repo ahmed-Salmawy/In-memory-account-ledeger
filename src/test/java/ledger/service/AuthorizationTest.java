@@ -6,7 +6,7 @@ import ledger.domain.Authorization;
 import ledger.domain.exception.LedgerArgumentException;
 import ledger.domain.exception.LedgerValidationException;
 import ledger.domain.Money;
-import ledger.service.command.dto.LedgerCommandPayload;
+import ledger.domain.LedgerCommandPayload;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -20,9 +20,9 @@ import static ledger.domain.exception.LedgerValidationException.Code.INVALID_BUS
 import static ledger.domain.exception.LedgerValidationException.Code.UNKNOWN_ACCOUNT;
 import static ledger.domain.enums.Currency.AED;
 import static ledger.domain.enums.Currency.BHD;
-import static ledger.service.command.dto.CommandType.AUTHORIZATION;
-import static ledger.service.command.dto.CommandType.CREDIT;
-import static ledger.service.command.dto.CommandType.DEBIT;
+import static ledger.domain.enums.CommandType.AUTHORIZATION;
+import static ledger.domain.enums.CommandType.CREDIT;
+import static ledger.domain.enums.CommandType.DEBIT;
 import static ledger.domain.enums.LedgerEntryType.OVERDRAFT_FEE;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -145,8 +145,8 @@ class AuthorizationTest {
 
     @Test
     void approvalUsesPostedDayAndAllKnownHoldsInCallerOrder() {
-        engine.process(new LedgerCommandPayload("C1", 1, 5, CREDIT, "A", Money.of(AED, "10")));
-        engine.process(new LedgerCommandPayload("H1", 2, 5, AUTHORIZATION, "A", Money.of(AED, "10"), "Early"));
+        engine.process(new LedgerCommandPayload("C1", 5, 5, CREDIT, "A", Money.of(AED, "10")));
+        engine.process(new LedgerCommandPayload("H1", 2, 2, AUTHORIZATION, "A", Money.of(AED, "10"), "Early"));
         assertEquals(DECLINED, engine.authorizations().get(0).status());
         engine.process(new LedgerCommandPayload("H2", 6, 1, AUTHORIZATION, "A", Money.of(AED, "8"), "Later"));
         engine.process(new LedgerCommandPayload("H3", 5, 5, AUTHORIZATION, "A", Money.of(AED, "3"), "Earlier"));

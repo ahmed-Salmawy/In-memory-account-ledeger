@@ -1,4 +1,4 @@
-package ledger.service.command.dto;
+package ledger.domain.enums;
 
 /**
  * Input command kinds. CREDIT/DEBIT/SETTLEMENT/REVERSAL book ledger movements;

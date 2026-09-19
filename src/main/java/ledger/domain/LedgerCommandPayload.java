@@ -1,10 +1,11 @@
-package ledger.service.command.dto;
+package ledger.domain;
 
 import java.util.Objects;
-import ledger.domain.exception.LedgerArgumentException;
-import ledger.domain.Money;
 
-/** Instruction to change ledger state; successful handling emits a domain event. */
+import ledger.domain.enums.CommandType;
+import ledger.domain.exception.LedgerArgumentException;
+
+/** Instruction to change ledger state; successful handling returns the entries it booked. */
 public record LedgerCommandPayload(String eventId, int postedDay, int valueDay,
                                    CommandType type, String accountId, Money amount, String authorizationId,
                                    String referencedEventId, int installmentCount) {
@@ -39,6 +40,9 @@ public record LedgerCommandPayload(String eventId, int postedDay, int valueDay,
         }
         if (postedDay < 1 || valueDay < 1) {
             throw new LedgerArgumentException("Business days must be positive");
+        }
+        if (valueDay > postedDay) {
+            throw new LedgerArgumentException("Value day must not be later than the posted day");
         }
         if (type == CommandType.REVERSAL) {
             if (amount != null || authorizationId != null || referencedEventId == null
