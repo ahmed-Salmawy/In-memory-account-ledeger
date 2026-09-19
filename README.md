@@ -52,6 +52,25 @@ Reading Day 2 across the run shows the back-valued case: E7 arrives on Day 5
 with a Day 2 value date, so the Day 2 row ends the replay showing the fee it
 caused and the reversal E9 produced.
 
+## Fee reconciliation walkthrough
+
+`fee-reconciliation.html` is a self-contained page — no build step, no network,
+open it in a browser — that steps through E1–E10 and shows why the back-valued
+E7 produces three fees rather than one. It replays the stream command by
+command, showing the pre-fee balance behind each decision, and a sandbox mode
+accepts a hand-written command so the four-way per-day rule and the
+latest-processed-day bound can be probed directly.
+
+Its model is a JavaScript reimplementation of the fee semantics, kept
+deliberately narrow: fee reconciliation, authorization holds, reversal, and
+rejection only. Interest is not accrued and balances therefore exclude the Day 6
+capitalization. Within that scope it agrees with the engine exactly — the same
+fifteen entries in the same booking order, with the same entry IDs, value days,
+and signs, and the same `UNKNOWN_AUTHORIZATION` rejection for E6.
+
+The page is a teaching aid, not a second source of truth. `LedgerEngine` and the
+test suite decide behaviour; if the two ever disagree, the page is wrong.
+
 ## Structure
 
 - `src/main/java/ledger/domain/`: accounts, money, entries, authorizations,
@@ -67,6 +86,7 @@ caused and the reversal E9 produced.
   captured replay errors.
 - `src/main/java/ledger/LedgerApplication.java`: runnable E1–E10 scenario.
 - `src/test/java/ledger/`: matching domain/service tests.
+- `fee-reconciliation.html`: interactive walkthrough of the fee rule; see above.
 - `DESIGN.md`, `IMPLEMENTATION_PLAN.md`, and `AMBIGUITIES.md`: architecture
   context and explicit policy decisions.
 - `NUMBERS.md` and `REJECTED.md`: numeric choices and acceptance decisions.

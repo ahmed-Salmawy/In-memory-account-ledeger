@@ -493,3 +493,19 @@ milestones.
   and this model lacks.
 - Verification: full suite runs 70 tests with only the documented criterion 7
   failure; 0 errors and 0 skipped.
+
+## 2026-09-19T18:58:12Z — Fee walkthrough checked against the engine and documented
+
+- Replayed E1–E10 through the page's own JavaScript model and diffed it against
+  `LedgerApplication`. The fifteen command and fee entries match exactly in
+  booking order, entry ID, value day, and sign, as does the
+  `UNKNOWN_AUTHORIZATION` rejection for E6. Interest is out of the page's scope
+  and is the only difference.
+- One divergence found and fixed: the sandbox accepted a value day later than
+  its posted day, which the engine now rejects. The model rejects it as
+  `INVALID_VALUE_DAY`, the scope notes state the rule, and the input carries the
+  constraint.
+- README describes the page, its narrower scope, and that the engine and test
+  suite remain the source of truth if the two disagree.
+- Verification: full suite runs 70 tests with only the documented criterion 7
+  failure; 0 errors and 0 skipped.

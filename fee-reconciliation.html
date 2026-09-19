@@ -127,7 +127,7 @@
         </div>
         <div class="row">
           <div class="field"><label>Posted day</label><input id="sbPosted" type="number" min="1" max="9" value="2"></div>
-          <div class="field"><label>Value day</label><input id="sbValue" type="number" min="1" max="9" value="2"></div>
+          <div class="field"><label>Value day</label><input id="sbValue" type="number" min="1" max="9" value="2" title="Must not be later than the posted day"></div>
         </div>
         <div class="row" id="sbAuthRow" style="display:none;">
           <div class="field"><label>Authorization ID</label><input id="sbAuthId" placeholder="Auth-X"></div>
@@ -214,7 +214,9 @@
       </details>
       <details>
         <summary>Scope notes</summary>
-        <p>Only fee reconciliation is simulated — interest capitalization and instalment allocation are
+        <p>Value days may precede their posted day (E7) but never follow it; a
+        forward-dated command is rejected, matching <code>LedgerCommandPayload</code>.
+        Only fee reconciliation is simulated — interest capitalization and instalment allocation are
         simplified (E10 books 3.334/3.333/3.333 BHD but no interest is accrued). Amounts are exact
         minor units; no floating point.</p>
       </details>
@@ -331,6 +333,11 @@ function process(st, cmd) {
   }
   if (cmd.posted < 1 || cmd.value < 1) {
     return reject(st, step, 'INVALID_DAY', 'Business days must be positive.');
+  }
+  if (cmd.value > cmd.posted) {
+    return reject(st, step, 'INVALID_VALUE_DAY',
+      'A value day may precede its posted day, as E7 does, but never follow it. '
+      + 'Forward value dating is out of scope — see AMBIGUITIES section 4.');
   }
 
   /* --- book --- */
