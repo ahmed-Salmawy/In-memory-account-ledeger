@@ -1,12 +1,19 @@
-package ledger.service;
+package ledger.service.daily;
 
 import java.math.BigDecimal;
 import java.util.List;
 import ledger.domain.Account;
 import ledger.domain.Money;
 import ledger.domain.LedgerEntry;
-import ledger.domain.LedgerEntryType;
+import ledger.domain.exception.LedgerArgumentException;
+import ledger.domain.enums.LedgerEntryType;
+import ledger.service.AccountBalanceCalculator;
 
+/**
+ * Daily interest on positive closing balances at the fixed rate 0.0004, rounded
+ * HALF_EVEN per day; capitalization books the exact sum of those rounded
+ * accruals once per account at the period's last day.
+ */
 public final class InterestProcessor {
     private static final BigDecimal DAILY_INTEREST_RATE = new BigDecimal("0.0004");
 
@@ -21,6 +28,7 @@ public final class InterestProcessor {
         this.balances = balances;
     }
 
+    /** Accrues on positive fee-inclusive (interest-free) closings only; negative days earn nothing. */
     public Money dailyInterest(String accountId, int day) {
         Money base = balances.balanceWithoutInterest(accountId, day);
         return base.amount().signum() > 0
@@ -28,9 +36,13 @@ public final class InterestProcessor {
                 : Money.rounded(base.currency(), BigDecimal.ZERO);
     }
 
+    /**
+     * Capitalizes each account once: idempotent by entry ID, so repeated calls
+     * never double-book. Zero totals produce no entry.
+     */
     public List<LedgerEntry> capitalize(int firstDay, int lastDay) {
         if (firstDay < 1 || lastDay < firstDay) {
-            throw new IllegalArgumentException("Invalid interest period");
+            throw new LedgerArgumentException("Invalid interest period");
         }
         List<LedgerEntry> capitalizations = new java.util.ArrayList<>();
         for (Account account : accounts) {
