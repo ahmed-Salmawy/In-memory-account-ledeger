@@ -17,9 +17,9 @@ import ledger.report.DailyReport;
 import ledger.report.ReplayReport;
 
 /**
- * Drives the assessment scenario end to end: processes commandsProcessor in caller order
+ * Drives the assessment scenario end to end: processes commands in caller order
  * capturing rejections, extends fee assessment through the report's final day,
- * capitalizes interestProcessor, and projects one report row per account per day.
+ * capitalizes interest, and projects one report row per account per day.
  */
 public final class LedgerReplay {
     private final List<Account> accounts;
@@ -29,7 +29,7 @@ public final class LedgerReplay {
     }
 
     /**
-     * Deterministic by construction — same accounts and commandsProcessor always yield an
+     * Deterministic by construction — same accounts and commands always yield an
      * equal report. Business rejections never abort the replay; they surface as
      * <code>ProcessingError</code>s on the day they were posted.
      */

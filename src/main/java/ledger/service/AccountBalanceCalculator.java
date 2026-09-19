@@ -14,7 +14,7 @@ import static ledger.domain.exception.LedgerValidationException.Code.INVALID_BUS
 import static ledger.domain.exception.LedgerValidationException.Code.UNKNOWN_ACCOUNT;
 
 /**
- * Derives every balance view on demand from the opening balanceCalculator, the
+ * Derives every balance view on demand from the opening balance, the
  * append-only entry list, and the live holds — there is no cached or stored
  * balance anywhere; projection is an O(n) scan by design.
  */
@@ -39,12 +39,12 @@ public final class AccountBalanceCalculator {
         return account;
     }
 
-    /** Everything counts: all booked entries, feesProcessor and interestProcessor, through the given day. */
+    /** Everything counts: all booked entries, fees and capitalized interest, through the given day. */
     public Money balance(String accountId, int day) {
         return balance(accountId, day, true, true, false);
     }
 
-    /** Fee-eligibility view: prior-day feesProcessor count, the day's own fee or reversal does not. */
+    /** Fee-eligibility view: prior-day fees count, the day's own fee or reversal does not. */
     public Money preFeeBalance(String accountId, int day) {
         return balance(accountId, day, true, true, true);
     }

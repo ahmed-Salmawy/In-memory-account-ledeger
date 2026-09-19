@@ -479,3 +479,17 @@ milestones.
   report. The Auth-B point now supports the argument rather than carrying it.
 - Verification: full suite runs 70 tests with only the documented criterion 7
   failure; 0 errors and 0 skipped.
+
+## 2026-09-19T18:22:40Z — Comment artifacts cleared; authorization section split by what exists
+
+- Removed six rename artifacts left in prose: `AccountBalanceCalculator` had
+  "opening balanceCalculator", "feesProcessor and interestProcessor", and
+  "prior-day feesProcessor count"; `LedgerReplay` had "processes
+  commandsProcessor" twice and "capitalizes interestProcessor". A scan of every
+  comment line in main and test sources now finds no identifier used as prose.
+- `PRODUCTION_CONSIDERATIONS.md` authorization section now separates the two
+  terminal outcomes the implementation actually has — declined at creation, and
+  settled below the authorized amount — from the five that production requires
+  and this model lacks.
+- Verification: full suite runs 70 tests with only the documented criterion 7
+  failure; 0 errors and 0 skipped.

@@ -70,25 +70,20 @@ alone.
 
 ## Authorization lifecycle
 
-The implemented model ends an authorization in two ways that are not a matching
-settlement.
+### Terminal outcomes in the implemented model
 
-**Declined at creation.** Available funds did not cover the requested hold. The
-attempt is retained for audit, reserves nothing, and can never become approved
-under the same authorization ID — the decision is evaluated once and no later
-movement re-runs it, so a reversal that restores the balance does not revive it.
+Two, and neither is a matching settlement.
 
-**Settled for less than authorized.** A capture below the authorized amount
-books the captured debit and releases the *entire* hold, including the
-uncaptured remainder. This is the common case rather than an edge: it is what
-the supplied scenario exercises. The model has no concept of a residual hold or
-a further capture, so the difference is silently forfeited back to available
-funds.
+| Outcome | Real-world scenario | Behavior |
+| --- | --- | --- |
+| Declined at creation | Available funds did not cover the requested hold at the moment of the request. | Retain the attempt for audit and reserve nothing. The decision is evaluated once and never re-run, so a later credit or reversal that restores the balance does not revive it, and the same authorization ID can never become approved. |
+| Settled below the authorized amount | A merchant captures less than it authorized — a lower final amount than the estimate, a partial shipment, an absent tip. | Book the captured debit, mark the authorization SETTLED, and release the **entire** hold, including the uncaptured remainder. The difference returns to available funds immediately, because the model has no residual hold and no concept of a further capture. |
 
-A failed or unknown settlement does not end an authorization. Beyond these two,
-an approved hold has no exit and can therefore reserve funds forever.
+An approved hold has no other exit, so it can reserve funds indefinitely. A
+failed or unknown settlement does not end an authorization, and a duplicate
+authorization ID is rejected rather than replacing the existing hold.
 
-Production needs additional terminal outcomes:
+### Required in production, not implemented
 
 | Outcome | Real-world scenario | Mandated behavior |
 | --- | --- | --- |
