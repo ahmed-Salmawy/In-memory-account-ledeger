@@ -1,4 +1,4 @@
-package ledger.domain;
+package ledger.domain.exception;
 
 import java.util.Objects;
 
@@ -6,6 +6,7 @@ import java.util.Objects;
 public final class LedgerValidationException extends RuntimeException {
     public enum Code {
         UNKNOWN_ACCOUNT,
+        INVALID_BUSINESS_DAY,
         CONFLICTING_EVENT_ID,
         CURRENCY_MISMATCH,
         DUPLICATE_AUTHORIZATION_ID,

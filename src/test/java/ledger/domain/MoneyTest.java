@@ -1,12 +1,14 @@
 package ledger.domain;
 
+import ledger.domain.enums.Currency;
+import ledger.domain.exception.LedgerArgumentException;
 import java.math.BigDecimal;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
-import static ledger.domain.Currency.AED;
-import static ledger.domain.Currency.BHD;
+import static ledger.domain.enums.Currency.AED;
+import static ledger.domain.enums.Currency.BHD;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -48,7 +50,7 @@ class MoneyTest {
 
     @Test
     void rejectsCrossCurrencyArithmetic() {
-        assertThrows(IllegalArgumentException.class,
+        assertThrows(LedgerArgumentException.class,
                 () -> Money.of(AED, "1").add(Money.of(BHD, "1")));
     }
 

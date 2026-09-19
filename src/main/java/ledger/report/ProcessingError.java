@@ -1,7 +1,9 @@
-package ledger.domain;
+package ledger.report;
 
 import java.util.Objects;
+import ledger.domain.exception.LedgerValidationException;
 
+/** A business rejection captured during replay — the command, where it landed, and why. */
 public record ProcessingError(String eventId, String accountId, int day,
                               LedgerValidationException.Code code, String message) {
     public ProcessingError {
