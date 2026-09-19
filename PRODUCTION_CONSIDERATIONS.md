@@ -60,14 +60,6 @@ accounting, and financial-crime monitoring. The system would reject entries
 outside the permitted backdating window and prove that every affected downstream
 projection was recalculated.
 
-The forward direction needs its own controls before it can exist at all. The
-implementation rejects a value day later than its posted day, so instructed
-future-dated transfers are simply unrepresentable here. Supporting them in
-production means warehousing pending instructions until maturity, a permitted
-forward window, cancellation before value date, and a decision about whether a
-warehoused instruction reserves funds — none of which is a ledger concern
-alone.
-
 ## Authorization lifecycle
 
 ### Terminal outcomes in the implemented model
@@ -110,7 +102,8 @@ an authorization would destroy the evidence needed for disputes and reconciliati
 | One settlement closes the hold | Avoids inventing capture policy. | Real partial and multiple-capture behavior cannot be represented. |
 | Fixed currency scales, fee, and interest policy | Avoids a speculative product-configuration layer. | Product versioning, rate changes, tiering, calendars, tax, Shari'ah treatment, and effective-dated pricing are absent. |
 | No FX conversion | No exchange-rate source or FX rule was supplied. | Cross-currency postings, spreads, rate timestamps, and FX gain/loss accounting are unsupported. |
-| Abstract integer days | Sufficient for deterministic examples. | No UAE timezone, holidays, cut-offs, leap days, day-count conventions, or future-value-date policy. |
+| Abstract integer days | Sufficient for deterministic examples. | No UAE timezone, holidays, cut-offs, leap days, or day-count conventions. |
+| No forward value dating | The stream supplies one value-dated case and it is back-valued, so permitting the forward direction would invent policy. `valueDay > postedDay` is rejected. | Instructed future-dated transfers cannot be represented. Supporting them needs pending instructions warehoused until maturity, a permitted forward window, cancellation before value date, and a decision on whether a warehoused instruction reserves funds. |
 | Final value-date reports | Avoids a second temporal model. | The system cannot answer “what was known at that time” without a processing-time dimension and statement versions. |
 | Local validation and exception capture | Enough to demonstrate deterministic rejection. | No API authentication, authorization, maker-checker workflow, case management, or operational alerting. |
 | No core-GL, payment-network, or settlement reconciliation | External systems are outside scope. | Breaks, duplicates, missing messages, nostro differences, and end-of-day imbalance may go undetected. |
