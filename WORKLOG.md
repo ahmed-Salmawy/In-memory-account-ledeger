@@ -509,3 +509,19 @@ milestones.
   suite remain the source of truth if the two disagree.
 - Verification: full suite runs 70 tests with only the documented criterion 7
   failure; 0 errors and 0 skipped.
+
+## 2026-09-19T20:14:33Z — Production considerations condensed and corrected
+
+- Grouped the cut table into categories that materially affect this ledger
+  rather than enumerating every feature of a banking platform.
+- Corrected a contradiction between two sections: the cut table described E5 as
+  a matching settlement, while the authorization section correctly records it as
+  a capture of AED 185.00 against a AED 200.00 hold.
+- Restored the uncapped fee assessment as its own cut, pointing at AMBIGUITIES
+  §1 rather than restating the argument.
+- Recorded that days advance only when a command or a report asks for them, so
+  what production adds is the scheduler and not the assessment logic, which
+  already runs for every account on every newly reached day.
+- Recorded why removing the in-process publisher does not remove the problem:
+  real consumers are cross-process, so publication becomes a second write. An
+  append-only journal is already the log a transactional outbox would duplicate.
