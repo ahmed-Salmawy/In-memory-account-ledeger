@@ -55,10 +55,10 @@ caused and the reversal E9 produced.
 ## Structure
 
 - `src/main/java/ledger/domain/`: accounts, money, entries, authorizations,
-  domain enums, and exceptions. Immutable values only; nothing here depends on
-  the service layer.
-- `src/main/java/ledger/service/command/`: command model, one typed handler per
-  command type, routing, and the append-only entry book.
+  domain enums, exceptions, and the command payload. Immutable values only;
+  nothing here depends on the service layer.
+- `src/main/java/ledger/service/command/`: one typed handler per command type,
+  routing, and the append-only entry book.
 - `src/main/java/ledger/service/daily/`: calendar-driven postings — overdraft
   fee reconciliation and interest accrual with capitalization.
 - `src/main/java/ledger/service/`: engine, context and wiring, replay, and
@@ -87,8 +87,11 @@ caused and the reversal E9 produced.
 5. `balance(accountId, day)` derives opening balance plus all currently
    known entries for that account with `valueDay <= day`. No balance cache
    or posted-day snapshot is authoritative.
-6. Unknown accounts, currency mismatches, blank IDs, and nonpositive days
-    are rejected. Invalid transfers do not consume IDs or move money.
+6. Unknown accounts, currency mismatches, blank IDs, nonpositive days, and a
+    value day later than its posted day are rejected. Only back-valued and
+    same-day postings exist; forward value dating is out of scope, so every
+    entry is visible to balances as soon as it is processed. Invalid transfers
+    do not consume IDs or move money.
 7. Event IDs are unique across the engine. Identical retries are no-ops;
    conflicting payloads using the same ID are rejected.
 8. Commands are processed in caller order. The engine is single-threaded.

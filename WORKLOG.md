@@ -447,3 +447,35 @@ milestones.
   longer part of the build, so later verification lines cite tests only.
 - Verification: full suite runs 70 tests with only the documented criterion 7
   failure; 0 errors and 0 skipped.
+
+## 2026-09-19T17:06:41Z — Calendar-driven processors returned to service/daily
+
+- Moved `OverdraftFeeProcessor` and `InterestProcessor` back under
+  `service/daily`. Both hold their own policy state — active fees and fee
+  cycles, the daily rate and the accounts they capitalize for — so they stay
+  separate from the engine, which owns orchestration: the reconciliation span,
+  day advancement, and command validation.
+- Service packages are named for what triggers the work: `command` for an
+  arriving instruction, `daily` for time advancing.
+- Structure blocks in README, CLAUDE.md, and the implementation plan updated
+  for the current layout, including the command payload, `CommandType`, and
+  `LedgerEntryBook` now living under `domain`.
+- Verification: full suite runs 70 tests with only the documented criterion 7
+  failure; 0 errors and 0 skipped.
+
+## 2026-09-19T17:41:22Z — Forward value dating removed; entry book returned to the service layer
+
+- `LedgerCommandPayload` now rejects `valueDay > postedDay`. The specification
+  supplies only a back-valued case, so accepting the forward direction was
+  inventing policy. It is a `LedgerArgumentException`: malformed input rather
+  than a funds decision, so a replay never records it as a `ProcessingError`.
+  `approvalUsesPostedDayAndAllKnownHoldsInCallerOrder` keeps every assertion
+  using a same-day credit whose value day still falls after the hold request.
+- Moved `LedgerEntryBook` from `domain` to `service.command`. It wraps and
+  mutates the shared entry list, so it is a service; `domain` is immutable
+  values only and again has no outbound imports.
+- Re-argued REJECTED criterion 6 on the criterion's own terms: an assessed and
+  reversed fee is not the same state as no fee, which is visible in the Day 2
+  report. The Auth-B point now supports the argument rather than carrying it.
+- Verification: full suite runs 70 tests with only the documented criterion 7
+  failure; 0 errors and 0 skipped.

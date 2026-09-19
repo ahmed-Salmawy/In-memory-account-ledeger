@@ -2,10 +2,23 @@
 
 ## Append-only at scale
 
-At 100× volume, CPU fails before append-only storage. Balance, available-balance,
-fee, interest, and report projections repeatedly scan the shared entry list;
-fee assessment adds account-by-day loops around those scans. Replay cost therefore
-grows much faster than the number of entries, and latency becomes unpredictable.
+At 100× volume, CPU fails before append-only storage. Every balance view is a
+full scan of the shared entry list, and nothing caches a result. Fee
+reconciliation performs one such scan per day in its span, and the engine
+reconciles every account on every newly reached day, so each additional entry
+raises the cost of every later projection.
+
+Replay is therefore quadratic in entry count, not linear:
+
+```text
+balance(account, day)          O(n)          scan of all entries
+reconcile(account, span)       O(days × n)   one projection per day
+replay of m commands           O(m² × days × accounts)
+```
+
+100× the volume is roughly 10,000× the work. Storage is unaffected — entries
+are small and append-only is the cheapest possible write pattern — so the
+failure is latency, and it arrives suddenly rather than gradually.
 
 State is also unbounded. Ledger entries, processed command IDs, authorizations,
 reversed-event IDs, active-fee state, and fee-cycle counters remain in heap for
@@ -47,14 +60,33 @@ accounting, and financial-crime monitoring. The system would reject entries
 outside the permitted backdating window and prove that every affected downstream
 projection was recalculated.
 
+The forward direction needs its own controls before it can exist at all. The
+implementation rejects a value day later than its posted day, so instructed
+future-dated transfers are simply unrepresentable here. Supporting them in
+production means warehousing pending instructions until maturity, a permitted
+forward window, cancellation before value date, and a decision about whether a
+warehoused instruction reserves funds — none of which is a ledger concern
+alone.
+
 ## Authorization lifecycle
 
-In the implemented model, the only non-settlement terminal outcome is
-`DECLINED`. It represents insufficient available funds at authorization time. The
-attempt remains recorded, creates no hold, and cannot later become approved under
-the same authorization ID. A failed or unknown settlement does not end an
-authorization. An approved authorization has no other exit and can therefore hold
-funds forever.
+The implemented model ends an authorization in two ways that are not a matching
+settlement.
+
+**Declined at creation.** Available funds did not cover the requested hold. The
+attempt is retained for audit, reserves nothing, and can never become approved
+under the same authorization ID — the decision is evaluated once and no later
+movement re-runs it, so a reversal that restores the balance does not revive it.
+
+**Settled for less than authorized.** A capture below the authorized amount
+books the captured debit and releases the *entire* hold, including the
+uncaptured remainder. This is the common case rather than an edge: it is what
+the supplied scenario exercises. The model has no concept of a residual hold or
+a further capture, so the difference is silently forfeited back to available
+funds.
+
+A failed or unknown settlement does not end an authorization. Beyond these two,
+an approved hold has no exit and can therefore reserve funds forever.
 
 Production needs additional terminal outcomes:
 
@@ -76,7 +108,8 @@ an authorization would destroy the evidence needed for disputes and reconciliati
 | In-memory state only | Keeps the assessment focused on ledger behavior. | Restart loses money state, idempotency keys, holds, and audit evidence; there is no recovery or high availability. |
 | Linear projections | Small data makes the simplest calculation verifiable. | Latency and CPU grow with history and report size. |
 | Single-threaded caller order | Avoids locking and makes replay deterministic. | No concurrent account processing, partition ordering, or race protection. |
-| In-process synchronous events | Demonstrates decoupling without infrastructure. | No durable delivery, retry, outbox, dead-letter handling, or cross-service recovery. |
+| No event publication | An in-process publisher was built and removed once it was clear nothing consumed it. | Downstream consumers would need a transactional outbox and a broker: publishing after commit risks a lost event, publishing before risks one for a transaction that rolls back. |
+| No cap on fee assessment | The supplied rule states a per-day test and no limit; inventing one would override it. | A fee is itself a booked entry, so it counts toward later closing balances and an account near zero can be driven negative by its own fee and charged again. Nothing bounds the chain; production needs a per-period cap or a rule that fee-induced overdrafts are not fee-bearing. |
 | Minimal account record | Only identity, currency, and opening balance are needed here. | No ownership, lifecycle status, blocks, product terms, limits, or legal restrictions. |
 | Minimal authorization states | The supplied scenario needs approval, decline, and settlement only. | Holds can live forever; expiry, void, reversal, incremental authorization, multiple capture, and dispute flows are absent. |
 | One settlement closes the hold | Avoids inventing capture policy. | Real partial and multiple-capture behavior cannot be represented. |

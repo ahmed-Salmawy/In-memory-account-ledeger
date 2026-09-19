@@ -34,6 +34,31 @@ valid. Consequently, E7 assesses Day 2, Day 4, and Day 5 fees, and E9 causes
 their three append-only reversals. The acceptance criterion expecting exactly
 one Day 2 fee is rejected in `REJECTED.md`.
 
+**Fees can chain, and this is a consequence of the decision rather than an
+oversight.** A fee is a booked entry carrying a value day, so it counts toward
+every later day's closing balance; only the assessed day's own fee is excluded,
+otherwise a fee would trigger itself. An account left between zero and
+AED 25.00 is therefore pushed negative by its own fee and assessed again the
+next day. The supplied scenario comes within AED 5.00 of demonstrating it:
+
+```text
+D3 before the Day 2 fee    30.00
+D3 after the Day 2 fee      5.00   positive, so no Day 3 fee
+```
+
+The alternative — testing eligibility against a balance that excludes every
+fee rather than just the assessed day's — was rejected because the
+non-negotiable rule defines the test on the closing ledger balance, and a
+booked fee is part of that balance. Excluding fees would require an exception
+the specification does not grant, and would also make a genuinely overdrawn
+account look solvent.
+
+In production this would need a bound: a cap per account per period, or an
+explicit rule that a fee-induced overdraft is not itself fee-bearing.
+Compounding penalty fees is a consumer-protection question, so the bound is a
+product decision to be taken with the business rather than a default invented
+by the ledger.
+
 ## 2. Authorization approval and Auth-B
 
 **Gap.** The acceptance criterion explains the effect **if Auth-B is approved**
@@ -82,6 +107,27 @@ ledger movements use value day.
 are approved now rather than reconstructing a historical hold snapshot. Daily
 reports separately reconstruct authorization status from creation and status
 days so the printed timeline remains understandable.
+
+**Forward value dates are out of scope.** The specification supplies one
+value-dated case and it is back-valued (E7). Nothing states what a value day
+later than its posted day should mean, so accepting one would be inventing
+policy — the same reasoning that rejects an invented BHD fee or an FX rate.
+`LedgerCommandPayload` therefore rejects `valueDay > postedDay` as a
+`LedgerArgumentException`: a malformed instruction rather than a business
+decision about funds, so it is a caller error and never becomes a
+`ProcessingError` in a replay.
+
+The consequence is that every entry is visible to balances from the moment it
+is processed, and the only temporal skew in the system is backwards. That keeps
+one question open rather than two — "what did this day look like once we knew
+everything" — and it is why balance projection needs no notion of a future
+entry.
+
+A production ledger would need the forward direction, because instructed
+future-dated transfers are ordinary banking. It would arrive with its own
+controls: a permitted forward window, warehousing of pending instructions until
+value date, and cancellation before maturity. None of that is derivable from
+the supplied stream.
 
 ## 5. Currency precision, fees, interest, and instalments
 

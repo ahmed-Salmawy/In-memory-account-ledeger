@@ -62,39 +62,43 @@ about how an approved hold behaves.
 ## Criterion 6 — Rejected as written
 
 The criterion says that after E9, all balances and fees return to their pre-E7
-values. Balances and net fees do return, so the criterion is not rejected on
-arithmetic:
+values. The balance half is true, and the rejection does not rest on arithmetic:
 
 ```text
 D2 balance   1200.00 - 950.00 - 620.00 + 620.00           =  250.00
 net fees     -25.00 -25.00 -25.00 +25.00 +25.00 +25.00    =    0.00
 ```
 
-Authorization state does not return. E8 requested a AED 90.00 hold on Day 5 and
-was declined because E7 had already driven available funds negative. Without
-E7, the Day 5 closing balance is AED 465.00 and Auth-B would have been
-approved. E9 restores the balance, but the decision stands: approval is
-evaluated once against the funds visible at that moment and is never re-run by
-a later movement (AMBIGUITIES §2). The Day 6 report still reads:
+**The fee half is false on the criterion's own terms.** A fee that was assessed
+and then reversed is not the same state as a fee that was never assessed. Before
+E7 the Day 2 report carries no fee activity; after E9 it carries two entries:
+
+```text
+pre-E7    fees=[]
+post-E9   fees=[OVERDRAFT_FEE, OVERDRAFT_FEE_REVERSAL]
+```
+
+Those entries are permanent, disclosable, and visible on a statement. A customer
+was charged AED 25.00 on three days and refunded it; "returned to pre-E7 values"
+describes the net, not the account. Fee-count reporting, conduct metrics, and
+complaint evidence all distinguish the two, which is precisely why the ledger is
+append-only rather than corrective.
+
+**And one thing does not return in any sense.** E8 requested a AED 90.00 hold on
+Day 5 and was declined because E7 had driven available funds negative. Without
+E7 the Day 5 closing balance is AED 465.00 and Auth-B would have been approved.
+E9 restores the balance, but approval is evaluated once against the funds
+visible at that moment and is never re-run by a later movement (AMBIGUITIES §2),
+so the Day 6 report still reads:
 
 ```text
 authorizations={Auth-A=SETTLED, Auth-B=DECLINED}
 ```
 
-A reversal cannot un-decline an authorization. "All balances and fees return"
-is therefore true of the numbers and false of the ledger's actual state, and a
-customer who was refused a payment on Day 5 stays refused.
-
-History does not return either. E7, its three fees, E9, and the three fee
-reversals remain permanently recorded, because corrections are new entries
-rather than deletions:
-
-```text
-E7                          -620.00
-OVERDRAFT_FEE x3             -75.00   (D2, D4, D5)
-E9 REVERSAL                  620.00
-OVERDRAFT_FEE_REVERSAL x3     75.00   (D2, D4, D5)
-```
+A reversal cannot un-decline an authorization. The criterion speaks only of
+balances and fees, so this does not decide the rejection on its own — but it
+shows what the criterion's framing hides: a correction restores figures, not
+consequences.
 
 ## Criterion 7 — Rejected
 

@@ -10,7 +10,8 @@
 | `UNNECESSARY` on input | Reject precision loss rather than silently changing an instructed transfer; extra trailing zeros are exact. |
 | Amount sign `> 0` | Input transfers are magnitudes; event type determines the posting direction. |
 | CREDIT/fee reversal/interest sign `1`; DEBIT/SETTLEMENT/fee sign `-1` | Signed booked amounts implement addition/subtraction; REVERSAL uses the opposite source sign. |
-| First valid day `1` | The assessment uses one-based abstract business days. No maximum is invented in the reusable records. |
+| First valid day `1` | The assessment uses one-based abstract business days. No calendar maximum is invented. |
+| Value day upper bound `postedDay` | A value day may precede its posted day, as E7 requires, but never follow it. The specification supplies no forward-dated case, so permitting one would invent policy. See AMBIGUITIES §4. |
 | Opening AED `0.00`, BHD `0.000` | Supplied account configuration, not defaults hardcoded into the engine. |
 | Available after hold `>= 0` | Approve an authorization only when current available funds cover the full amount; zero remaining is valid. |
 
