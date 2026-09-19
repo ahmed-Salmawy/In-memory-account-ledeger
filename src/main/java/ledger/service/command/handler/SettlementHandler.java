@@ -7,7 +7,7 @@ import ledger.domain.LedgerEntry;
 import ledger.domain.exception.LedgerValidationException;
 import ledger.service.command.dto.CommandType;
 import ledger.service.command.dto.LedgerCommandPayload;
-import ledger.domain.LedgerEntryBook;
+import ledger.service.command.LedgerEntryBook;
 import ledger.domain.enums.LedgerEntryType;
 
 import static ledger.domain.enums.AuthorizationStatus.APPROVED;

@@ -8,7 +8,7 @@ import java.util.Set;
 import ledger.domain.LedgerEntry;
 import ledger.domain.enums.LedgerEntryType;
 import ledger.domain.exception.LedgerValidationException;
-import ledger.domain.LedgerEntryBook;
+import ledger.service.command.LedgerEntryBook;
 import ledger.service.command.dto.CommandType;
 import ledger.service.command.dto.LedgerCommandPayload;
 

@@ -16,7 +16,7 @@ import ledger.service.command.handler.CreditHandler;
 import ledger.service.command.handler.DebitHandler;
 import ledger.service.command.handler.ReversalHandler;
 import ledger.service.command.handler.SettlementHandler;
-import ledger.domain.LedgerEntryBook;
+import ledger.service.command.LedgerEntryBook;
 import ledger.service.daily.InterestProcessor;
 import ledger.service.daily.OverdraftFeeProcessor;
 

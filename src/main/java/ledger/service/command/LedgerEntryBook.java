@@ -1,7 +1,8 @@
-package ledger.domain;
+package ledger.service.command;
 
 import java.util.List;
-
+import ledger.domain.LedgerEntry;
+import ledger.domain.Money;
 import ledger.domain.enums.LedgerEntryType;
 import ledger.service.command.dto.LedgerCommandPayload;
 
