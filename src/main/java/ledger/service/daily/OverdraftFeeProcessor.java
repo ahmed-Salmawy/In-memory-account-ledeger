@@ -17,13 +17,13 @@ public final class OverdraftFeeProcessor {
     private static final Money AED_OVERDRAFT_FEE = Money.of(Currency.AED, "25");
 
     private final List<LedgerEntry> entries;
-    private final AccountBalanceCalculator balances;
+    private final AccountBalanceCalculator accountBalanceCalculator;
     private final Map<String, LedgerEntry> activeFees = new LinkedHashMap<>();
     private final Map<String, Integer> feeCycles = new LinkedHashMap<>();
 
-    public OverdraftFeeProcessor(List<LedgerEntry> entries, AccountBalanceCalculator balances) {
+    public OverdraftFeeProcessor(List<LedgerEntry> entries, AccountBalanceCalculator accountBalanceCalculator) {
         this.entries = entries;
-        this.balances = balances;
+        this.accountBalanceCalculator = accountBalanceCalculator;
     }
 
     /**
@@ -52,7 +52,7 @@ public final class OverdraftFeeProcessor {
      */
     private Optional<LedgerEntry> reconcileDay(String accountId, int day) {
         String key = accountId + "/D" + day;
-        boolean negative = balances.preFeeBalance(accountId, day).amount().signum() < 0;
+        boolean negative = accountBalanceCalculator.preFeeBalance(accountId, day).amount().signum() < 0;
         LedgerEntry activeFee = activeFees.get(key);
         if (negative && activeFee == null) {
             int cycle = feeCycles.merge(key, 1, Integer::sum);

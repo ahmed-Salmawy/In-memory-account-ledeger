@@ -19,18 +19,18 @@ public final class InterestProcessor {
 
     private final List<Account> accounts;
     private final List<LedgerEntry> entries;
-    private final AccountBalanceCalculator balances;
+    private final AccountBalanceCalculator accountBalanceCalculator;
 
     public InterestProcessor(List<Account> accounts, List<LedgerEntry> entries,
-                             AccountBalanceCalculator balances) {
+                             AccountBalanceCalculator accountBalanceCalculator) {
         this.accounts = List.copyOf(accounts);
         this.entries = entries;
-        this.balances = balances;
+        this.accountBalanceCalculator = accountBalanceCalculator;
     }
 
     /** Accrues on positive fee-inclusive (interest-free) closings only; negative days earn nothing. */
     public Money dailyInterest(String accountId, int day) {
-        Money base = balances.balanceWithoutInterest(accountId, day);
+        Money base = accountBalanceCalculator.balanceWithoutInterest(accountId, day);
         return base.amount().signum() > 0
                 ? Money.rounded(base.currency(), base.amount().multiply(DAILY_INTEREST_RATE))
                 : Money.rounded(base.currency(), BigDecimal.ZERO);

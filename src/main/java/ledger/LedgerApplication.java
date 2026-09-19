@@ -3,16 +3,16 @@ package ledger;
 import java.util.List;
 import ledger.domain.Account;
 import ledger.domain.Money;
-import ledger.service.command.dto.LedgerCommandPayload;
+import ledger.domain.LedgerCommandPayload;
 import ledger.report.ReplayReport;
 import ledger.service.LedgerReplay;
 
 import static ledger.domain.enums.Currency.AED;
 import static ledger.domain.enums.Currency.BHD;
-import static ledger.service.command.dto.CommandType.AUTHORIZATION;
-import static ledger.service.command.dto.CommandType.CREDIT;
-import static ledger.service.command.dto.CommandType.DEBIT;
-import static ledger.service.command.dto.CommandType.SETTLEMENT;
+import static ledger.domain.enums.CommandType.AUTHORIZATION;
+import static ledger.domain.enums.CommandType.CREDIT;
+import static ledger.domain.enums.CommandType.DEBIT;
+import static ledger.domain.enums.CommandType.SETTLEMENT;
 
 /**
  * Runnable entry point for the supplied E1–E10 scenario. This is a library plus

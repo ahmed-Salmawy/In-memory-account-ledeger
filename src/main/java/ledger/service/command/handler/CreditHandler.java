@@ -6,8 +6,8 @@ import ledger.domain.LedgerEntry;
 import ledger.domain.Money;
 import ledger.domain.enums.LedgerEntryType;
 import ledger.service.command.LedgerEntryBook;
-import ledger.service.command.dto.CommandType;
-import ledger.service.command.dto.LedgerCommandPayload;
+import ledger.domain.enums.CommandType;
+import ledger.domain.LedgerCommandPayload;
 
 /** Books a credit as one entry per instalment, splitting exact minor units. */
 public final class CreditHandler implements LedgerCommandHandler {

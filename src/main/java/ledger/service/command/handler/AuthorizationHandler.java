@@ -8,8 +8,8 @@ import ledger.domain.Money;
 import ledger.domain.enums.AuthorizationStatus;
 import ledger.domain.exception.LedgerValidationException;
 import ledger.service.AccountBalanceCalculator;
-import ledger.service.command.dto.CommandType;
-import ledger.service.command.dto.LedgerCommandPayload;
+import ledger.domain.enums.CommandType;
+import ledger.domain.LedgerCommandPayload;
 
 import static ledger.domain.enums.AuthorizationStatus.APPROVED;
 import static ledger.domain.enums.AuthorizationStatus.DECLINED;
@@ -22,12 +22,12 @@ import static ledger.domain.exception.LedgerValidationException.Code.DUPLICATE_A
  */
 public final class AuthorizationHandler implements LedgerCommandHandler {
     private final Map<String, Authorization> authorizations;
-    private final AccountBalanceCalculator balances;
+    private final AccountBalanceCalculator accountBalanceCalculator;
 
     public AuthorizationHandler(Map<String, Authorization> authorizations,
-                                AccountBalanceCalculator balances) {
+                                AccountBalanceCalculator accountBalanceCalculator) {
         this.authorizations = authorizations;
-        this.balances = balances;
+        this.accountBalanceCalculator = accountBalanceCalculator;
     }
 
     @Override
@@ -46,7 +46,7 @@ public final class AuthorizationHandler implements LedgerCommandHandler {
             throw new LedgerValidationException(DUPLICATE_AUTHORIZATION_ID,
                     "Duplicate authorization ID: " + command.authorizationId());
         }
-        Money remaining = balances.availableBalance(command.accountId(), command.postedDay())
+        Money remaining = accountBalanceCalculator.availableBalance(command.accountId(), command.postedDay())
                 .add(command.amount().negate());
         AuthorizationStatus status = remaining.amount().signum() >= 0 ? APPROVED : DECLINED;
         authorizations.put(command.authorizationId(), new Authorization(command.authorizationId(),

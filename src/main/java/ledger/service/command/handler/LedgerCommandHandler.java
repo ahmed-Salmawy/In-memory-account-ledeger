@@ -2,8 +2,8 @@ package ledger.service.command.handler;
 
 import java.util.List;
 import ledger.domain.LedgerEntry;
-import ledger.service.command.dto.CommandType;
-import ledger.service.command.dto.LedgerCommandPayload;
+import ledger.domain.enums.CommandType;
+import ledger.domain.LedgerCommandPayload;
 
 /**
  * Handling for exactly one command type, declared by the handler itself so the

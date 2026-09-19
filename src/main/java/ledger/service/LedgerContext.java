@@ -9,16 +9,16 @@ import ledger.domain.Account;
 import ledger.domain.Authorization;
 import ledger.domain.LedgerEntry;
 import ledger.domain.exception.LedgerArgumentException;
+import ledger.service.daily.InterestProcessor;
+import ledger.service.daily.OverdraftFeeProcessor;
 import ledger.service.command.LedgerCommandDispatcher;
-import ledger.service.command.dto.LedgerCommandPayload;
+import ledger.domain.LedgerCommandPayload;
 import ledger.service.command.handler.AuthorizationHandler;
 import ledger.service.command.handler.CreditHandler;
 import ledger.service.command.handler.DebitHandler;
 import ledger.service.command.handler.ReversalHandler;
 import ledger.service.command.handler.SettlementHandler;
 import ledger.service.command.LedgerEntryBook;
-import ledger.service.daily.InterestProcessor;
-import ledger.service.daily.OverdraftFeeProcessor;
 
 /**
  * One ledger's shared state and the single processor instance built over it —
@@ -87,19 +87,19 @@ final class LedgerContext {
         return authorizations;
     }
 
-    AccountBalanceCalculator balances() {
+    AccountBalanceCalculator accountBalanceCalculator() {
         return accountBalanceCalculator;
     }
 
-    LedgerCommandDispatcher commands() {
+    LedgerCommandDispatcher commandDispatcher() {
         return ledgerCommandDispatcher;
     }
 
-    OverdraftFeeProcessor overdraftFeesProcessor() {
+    OverdraftFeeProcessor overdraftFeeProcessor() {
         return overdraftFeeProcessor;
     }
 
-    InterestProcessor interest() {
+    InterestProcessor interestProcessor() {
         return interestProcessor;
     }
 }

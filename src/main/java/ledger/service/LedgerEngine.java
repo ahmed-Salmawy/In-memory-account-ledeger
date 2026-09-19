@@ -8,8 +8,8 @@ import ledger.domain.LedgerEntry;
 import ledger.domain.Money;
 import ledger.domain.exception.LedgerArgumentException;
 import ledger.domain.exception.LedgerValidationException;
-import ledger.service.command.dto.CommandType;
-import ledger.service.command.dto.LedgerCommandPayload;
+import ledger.domain.enums.CommandType;
+import ledger.domain.LedgerCommandPayload;
 
 import static ledger.domain.exception.LedgerValidationException.Code.CONFLICTING_EVENT_ID;
 import static ledger.domain.exception.LedgerValidationException.Code.CURRENCY_MISMATCH;
@@ -19,7 +19,7 @@ import static ledger.domain.exception.LedgerValidationException.Code.UNKNOWN_ACC
  * Single-threaded orchestration in caller order; behavior lives in focused processors.
  */
 public final class LedgerEngine {
-    private final LedgerContext context;
+    private final LedgerContext ledgerContext;
     private int latestProcessedDay;
 
     /**
@@ -27,7 +27,7 @@ public final class LedgerEngine {
      * processor. A duplicate account is a caller error.
      */
     public LedgerEngine(List<Account> accounts) {
-        context = LedgerContext.create(accounts);
+        ledgerContext = LedgerContext.create(accounts);
     }
 
     /**
@@ -38,7 +38,7 @@ public final class LedgerEngine {
         Objects.requireNonNull(command, "command");
         try {
             validate(command);
-            List<LedgerEntry> booked = context.commands().dispatch(command);
+            List<LedgerEntry> booked = ledgerContext.commandDispatcher().dispatch(command);
             int previousLatestDay = latestProcessedDay;
             latestProcessedDay = Math.max(latestProcessedDay, command.postedDay());
             if (!booked.isEmpty()) {
@@ -57,7 +57,7 @@ public final class LedgerEngine {
      * publishing a business rejection.
      */
     private void validate(LedgerCommandPayload command) {
-        LedgerCommandPayload previous = context.processedCommands().get(command.eventId());
+        LedgerCommandPayload previous = ledgerContext.processedCommands().get(command.eventId());
         if (previous != null) {
             if (previous.equals(command)) {
                 throw new IdenticalRetryException();
@@ -74,7 +74,7 @@ public final class LedgerEngine {
     }
 
     private Account account(String accountId) {
-        Account account = context.accounts().get(accountId);
+        Account account = ledgerContext.accounts().get(accountId);
         if (account == null) {
             throw new LedgerValidationException(UNKNOWN_ACCOUNT, "Unknown account: " + accountId);
         }
@@ -87,7 +87,7 @@ public final class LedgerEngine {
      * only itself.
      */
     private void reconcileFees(Account account, int firstDay, int lastDay) {
-        context.overdraftFeesProcessor().reconcile(account, firstDay, lastDay);
+        ledgerContext.overdraftFeeProcessor().reconcile(account, firstDay, lastDay);
     }
 
     /**
@@ -95,7 +95,7 @@ public final class LedgerEngine {
      */
     private void assessNewlyReachedDays(int previousLatestDay) {
         for (int day = previousLatestDay + 1; day <= latestProcessedDay; day++) {
-            for (Account account : context.accounts().values()) {
+            for (Account account : ledgerContext.accounts().values()) {
                 reconcileFees(account, day, day);
             }
         }
@@ -117,49 +117,49 @@ public final class LedgerEngine {
      * Closing ledger balance: opening plus every known entry with valueDay ≤ day.
      */
     public Money balance(String accountId, int day) {
-        return context.balances().balance(accountId, day);
+        return ledgerContext.accountBalanceCalculator().balance(accountId, day);
     }
 
     /**
      * Ledger balance minus all currently approved holds — spendable funds, never stored.
      */
     public Money availableBalance(String accountId, int day) {
-        return context.balances().availableBalance(accountId, day);
+        return ledgerContext.accountBalanceCalculator().availableBalance(accountId, day);
     }
 
     /**
      * Available balance as it looked on that historical day, using each hold's status then.
      */
     public Money reportedAvailableBalance(String accountId, int day) {
-        return context.balances().reportedAvailableBalance(accountId, day);
+        return ledgerContext.accountBalanceCalculator().reportedAvailableBalance(accountId, day);
     }
 
     /**
      * One day's interest accrual: positive fee-inclusive balances only, rounded HALF_EVEN.
      */
     public Money dailyInterest(String accountId, int day) {
-        return context.interest().dailyInterest(accountId, day);
+        return ledgerContext.interestProcessor().dailyInterest(accountId, day);
     }
 
     /**
      * Appends one capitalization entry per account — the sum of its rounded daily accruals.
      */
     public void capitalizeInterest(int firstDay, int lastDay) {
-        context.interest().capitalize(firstDay, lastDay);
+        ledgerContext.interestProcessor().capitalize(firstDay, lastDay);
     }
 
     /**
      * Immutable snapshot of the full append-only history, in booking order.
      */
     public List<LedgerEntry> entries() {
-        return List.copyOf(context.entries());
+        return List.copyOf(ledgerContext.entries());
     }
 
     /**
      * Immutable snapshot of every authorization attempt, in processing order.
      */
     public List<Authorization> authorizations() {
-        return List.copyOf(context.authorizations().values());
+        return List.copyOf(ledgerContext.authorizations().values());
     }
 
     private static final class IdenticalRetryException extends RuntimeException {

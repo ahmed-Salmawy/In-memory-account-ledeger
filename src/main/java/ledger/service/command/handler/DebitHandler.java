@@ -4,8 +4,8 @@ import java.util.List;
 import ledger.domain.LedgerEntry;
 import ledger.domain.enums.LedgerEntryType;
 import ledger.service.command.LedgerEntryBook;
-import ledger.service.command.dto.CommandType;
-import ledger.service.command.dto.LedgerCommandPayload;
+import ledger.domain.enums.CommandType;
+import ledger.domain.LedgerCommandPayload;
 
 /** Books a debit as a negative entry — debits may overdraw the account. */
 public final class DebitHandler implements LedgerCommandHandler {

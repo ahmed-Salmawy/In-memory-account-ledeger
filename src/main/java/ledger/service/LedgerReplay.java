@@ -12,7 +12,7 @@ import ledger.domain.exception.LedgerValidationException;
 import ledger.report.ProcessingError;
 import ledger.domain.LedgerEntry;
 import ledger.domain.enums.LedgerEntryType;
-import ledger.service.command.dto.LedgerCommandPayload;
+import ledger.domain.LedgerCommandPayload;
 import ledger.report.DailyReport;
 import ledger.report.ReplayReport;
 

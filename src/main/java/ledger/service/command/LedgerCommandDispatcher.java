@@ -6,8 +6,8 @@ import java.util.Map;
 
 import ledger.domain.LedgerEntry;
 import ledger.domain.exception.LedgerArgumentException;
-import ledger.service.command.dto.CommandType;
-import ledger.service.command.dto.LedgerCommandPayload;
+import ledger.domain.enums.CommandType;
+import ledger.domain.LedgerCommandPayload;
 import ledger.service.command.handler.LedgerCommandHandler;
 
 /**

@@ -294,10 +294,12 @@ Do not create three `3.334` entries because that totals `10.002`.
 domain/
   Account.java
   LedgerEntry.java
+  LedgerCommandPayload.java
   Authorization.java
   Money.java
   enums/
     AuthorizationStatus.java
+    CommandType.java
     Currency.java
     LedgerEntryType.java
   exception/
@@ -312,9 +314,6 @@ service/
   command/
     LedgerCommandDispatcher.java
     LedgerEntryBook.java
-    dto/
-      CommandType.java
-      LedgerCommandPayload.java
     handler/
       LedgerCommandHandler.java
       CreditHandler.java
