@@ -1,136 +1,169 @@
 package ledger.service;
 
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
-import java.util.function.Consumer;
 import ledger.domain.Account;
 import ledger.domain.Authorization;
-import ledger.domain.LedgerDomainEvent;
-import ledger.domain.LedgerValidationException;
-import ledger.domain.Money;
-import ledger.domain.CommandType;
-import ledger.domain.LedgerCommand;
 import ledger.domain.LedgerEntry;
+import ledger.domain.Money;
+import ledger.domain.exception.LedgerArgumentException;
+import ledger.domain.exception.LedgerValidationException;
+import ledger.service.command.dto.CommandType;
+import ledger.service.command.dto.LedgerCommandPayload;
 
-import static ledger.domain.LedgerValidationException.Code.CONFLICTING_EVENT_ID;
-import static ledger.domain.LedgerValidationException.Code.CURRENCY_MISMATCH;
+import static ledger.domain.exception.LedgerValidationException.Code.CONFLICTING_EVENT_ID;
+import static ledger.domain.exception.LedgerValidationException.Code.CURRENCY_MISMATCH;
+import static ledger.domain.exception.LedgerValidationException.Code.UNKNOWN_ACCOUNT;
 
-/** Single-threaded orchestration in caller order; behavior lives in focused processors. */
+/**
+ * Single-threaded orchestration in caller order; behavior lives in focused processors.
+ */
 public final class LedgerEngine {
-    private final Map<String, Account> accounts = new LinkedHashMap<>();
-    private final Map<String, LedgerCommand> processedCommands = new LinkedHashMap<>();
-    private final List<LedgerEntry> entries = new ArrayList<>();
-    private final Map<String, Authorization> authorizations = new LinkedHashMap<>();
-    private final AccountBalanceCalculator balances;
-    private final TransactionProcessor transactions;
-    private final AuthorizationProcessor authorizationProcessor;
-    private final OverdraftFeeProcessor fees;
-    private final InterestProcessor interest;
-    private final InMemoryEventPublisher eventPublisher = new InMemoryEventPublisher();
+    private final LedgerContext context;
+    private int latestProcessedDay;
 
+    /**
+     * Builds this engine's context — its state and one instance of each
+     * processor. A duplicate account is a caller error.
+     */
     public LedgerEngine(List<Account> accounts) {
-        for (Account account : accounts) {
-            if (this.accounts.putIfAbsent(account.accountId(), account) != null) {
-                throw new IllegalArgumentException("Duplicate account: " + account.accountId());
-            }
-        }
-        balances = new AccountBalanceCalculator(this.accounts, entries, authorizations);
-        transactions = new TransactionProcessor(entries, processedCommands);
-        authorizationProcessor = new AuthorizationProcessor(authorizations, balances, transactions);
-        fees = new OverdraftFeeProcessor(entries, balances);
-        interest = new InterestProcessor(List.copyOf(this.accounts.values()), entries, balances);
-        eventPublisher.subscribe(LedgerDomainEvent.MovementProcessed.class, movement ->
-                fees.reconcile(movement.command().accountId(), movement.command().valueDay())
-                        .ifPresent(entry -> eventPublisher.publish(
-                                new LedgerDomainEvent.OverdraftFeeProcessed(entry))));
+        context = LedgerContext.create(accounts);
     }
 
-    public void process(LedgerCommand command) {
+    /**
+     * Handles one command in caller order. Business rejections are thrown —
+     * callers decide whether to abort a replay or record the error and continue.
+     */
+    public void process(LedgerCommandPayload command) {
         Objects.requireNonNull(command, "command");
         try {
-            processValid(command);
-        } catch (LedgerValidationException exception) {
-            eventPublisher.publish(new LedgerDomainEvent.ProcessingRejected(
-                    command, exception.code(), exception.getMessage()));
-            throw exception;
+            validate(command);
+            List<LedgerEntry> booked = context.commands().dispatch(command);
+            int previousLatestDay = latestProcessedDay;
+            latestProcessedDay = Math.max(latestProcessedDay, command.postedDay());
+            if (!booked.isEmpty()) {
+                reconcileFees(account(command.accountId()), command.valueDay(), latestProcessedDay);
+            }
+            assessNewlyReachedDays(previousLatestDay);
+
+        } catch (IdenticalRetryException ignored) {
         }
     }
 
-    private void processValid(LedgerCommand command) {
-        LedgerCommand previous = processedCommands.get(command.eventId());
+
+    /**
+     * Checks event ID conflicts, account existence, and currency compatibility.
+     * Identical retries raise a private signal that stops processing without
+     * publishing a business rejection.
+     */
+    private void validate(LedgerCommandPayload command) {
+        LedgerCommandPayload previous = context.processedCommands().get(command.eventId());
         if (previous != null) {
-            if (!previous.equals(command)) {
-                throw new LedgerValidationException(CONFLICTING_EVENT_ID,
-                        "Conflicting event ID: " + command.eventId());
+            if (previous.equals(command)) {
+                throw new IdenticalRetryException();
             }
-            return;
+            throw new LedgerValidationException(CONFLICTING_EVENT_ID,
+                    "Conflicting event ID: " + command.eventId());
         }
-        Account account = balances.account(command.accountId());
+
+        Account account = account(command.accountId());
         if (command.type() != CommandType.REVERSAL && account.currency() != command.amount().currency()) {
             throw new LedgerValidationException(CURRENCY_MISMATCH,
                     "Command currency differs from account currency");
         }
-        LedgerDomainEvent processed = switch (command.type()) {
-            case CREDIT -> new LedgerDomainEvent.CreditProcessed(
-                    command, transactions.credit(command));
-            case DEBIT -> new LedgerDomainEvent.DebitProcessed(
-                    command, List.of(transactions.debit(command)));
-            case AUTHORIZATION -> new LedgerDomainEvent.AuthorizationProcessed(
-                    command, authorizationProcessor.authorize(command));
-            case SETTLEMENT -> {
-                AuthorizationProcessor.SettlementResult result = authorizationProcessor.settle(command);
-                yield new LedgerDomainEvent.SettlementProcessed(
-                        command, List.of(result.entry()), result.authorization());
+    }
+
+    private Account account(String accountId) {
+        Account account = context.accounts().get(accountId);
+        if (account == null) {
+            throw new LedgerValidationException(UNKNOWN_ACCOUNT, "Unknown account: " + accountId);
+        }
+        return account;
+    }
+
+    /**
+     * The single fee path: book whatever reconciliation finds for the span. A
+     * movement reconciles from its value day; a newly reached day reconciles
+     * only itself.
+     */
+    private void reconcileFees(Account account, int firstDay, int lastDay) {
+        context.overdraftFeesProcessor().reconcile(account, firstDay, lastDay);
+    }
+
+    /**
+     * A day can become fee-bearing even when a command creates no ledger movement.
+     */
+    private void assessNewlyReachedDays(int previousLatestDay) {
+        for (int day = previousLatestDay + 1; day <= latestProcessedDay; day++) {
+            for (Account account : context.accounts().values()) {
+                reconcileFees(account, day, day);
             }
-            case REVERSAL -> new LedgerDomainEvent.ReversalProcessed(
-                    command, transactions.reverse(command));
-        };
-        processedCommands.put(command.eventId(), command);
-        eventPublisher.publish(processed);
+        }
     }
 
+    /**
+     * Extends fee assessment through a report's final day, past the last command.
+     */
+    public void assessFeesThrough(int day) {
+        if (day < 1) {
+            throw new LedgerArgumentException("Business day must be positive");
+        }
+        int previousLatestDay = latestProcessedDay;
+        latestProcessedDay = Math.max(latestProcessedDay, day);
+        assessNewlyReachedDays(previousLatestDay);
+    }
+
+    /**
+     * Closing ledger balance: opening plus every known entry with valueDay ≤ day.
+     */
     public Money balance(String accountId, int day) {
-        return balances.balance(accountId, day);
+        return context.balances().balance(accountId, day);
     }
 
+    /**
+     * Ledger balance minus all currently approved holds — spendable funds, never stored.
+     */
     public Money availableBalance(String accountId, int day) {
-        return balances.availableBalance(accountId, day);
+        return context.balances().availableBalance(accountId, day);
     }
 
+    /**
+     * Available balance as it looked on that historical day, using each hold's status then.
+     */
     public Money reportedAvailableBalance(String accountId, int day) {
-        return balances.reportedAvailableBalance(accountId, day);
+        return context.balances().reportedAvailableBalance(accountId, day);
     }
 
+    /**
+     * One day's interest accrual: positive fee-inclusive balances only, rounded HALF_EVEN.
+     */
     public Money dailyInterest(String accountId, int day) {
-        return interest.dailyInterest(accountId, day);
+        return context.interest().dailyInterest(accountId, day);
     }
 
+    /**
+     * Appends one capitalization entry per account — the sum of its rounded daily accruals.
+     */
     public void capitalizeInterest(int firstDay, int lastDay) {
-        interest.capitalize(firstDay, lastDay).forEach(entry ->
-                eventPublisher.publish(new LedgerDomainEvent.InterestCapitalized(entry)));
+        context.interest().capitalize(firstDay, lastDay);
     }
 
-    public <E extends LedgerDomainEvent> void on(Class<E> eventType,
-                                                  Consumer<? super E> subscriber) {
-        eventPublisher.subscribe(eventType, subscriber);
-    }
-
-    public List<InMemoryEventPublisher.DeliveryFailure> eventDeliveryFailures() {
-        return eventPublisher.failures();
-    }
-
+    /**
+     * Immutable snapshot of the full append-only history, in booking order.
+     */
     public List<LedgerEntry> entries() {
-        return List.copyOf(entries);
+        return List.copyOf(context.entries());
     }
 
+    /**
+     * Immutable snapshot of every authorization attempt, in processing order.
+     */
     public List<Authorization> authorizations() {
-        return List.copyOf(authorizations.values());
+        return List.copyOf(context.authorizations().values());
     }
 
-    public List<Account> accounts() {
-        return List.copyOf(accounts.values());
+    private static final class IdenticalRetryException extends RuntimeException {
+        private static final long serialVersionUID = 1L;
     }
+
 }

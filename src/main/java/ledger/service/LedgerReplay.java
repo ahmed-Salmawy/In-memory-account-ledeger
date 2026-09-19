@@ -6,15 +6,21 @@ import java.util.List;
 import java.util.Map;
 import ledger.domain.Account;
 import ledger.domain.Authorization;
-import ledger.domain.AuthorizationStatus;
-import ledger.domain.LedgerValidationException;
-import ledger.domain.ProcessingError;
+import ledger.domain.enums.AuthorizationStatus;
+import ledger.domain.exception.LedgerArgumentException;
+import ledger.domain.exception.LedgerValidationException;
+import ledger.report.ProcessingError;
 import ledger.domain.LedgerEntry;
-import ledger.domain.LedgerEntryType;
-import ledger.domain.LedgerCommand;
+import ledger.domain.enums.LedgerEntryType;
+import ledger.service.command.dto.LedgerCommandPayload;
 import ledger.report.DailyReport;
 import ledger.report.ReplayReport;
 
+/**
+ * Drives the assessment scenario end to end: processes commandsProcessor in caller order
+ * capturing rejections, extends fee assessment through the report's final day,
+ * capitalizes interestProcessor, and projects one report row per account per day.
+ */
 public final class LedgerReplay {
     private final List<Account> accounts;
 
@@ -22,13 +28,18 @@ public final class LedgerReplay {
         this.accounts = List.copyOf(accounts);
     }
 
-    public ReplayReport replay(List<LedgerCommand> commands, int firstDay, int lastDay) {
+    /**
+     * Deterministic by construction — same accounts and commandsProcessor always yield an
+     * equal report. Business rejections never abort the replay; they surface as
+     * <code>ProcessingError</code>s on the day they were posted.
+     */
+    public ReplayReport replay(List<LedgerCommandPayload> commands, int firstDay, int lastDay) {
         if (firstDay < 1 || lastDay < firstDay) {
-            throw new IllegalArgumentException("Invalid report period");
+            throw new LedgerArgumentException("Invalid report period");
         }
         LedgerEngine engine = new LedgerEngine(accounts);
         List<ProcessingError> errors = new ArrayList<>();
-        for (LedgerCommand command : commands) {
+        for (LedgerCommandPayload command : commands) {
             try {
                 engine.process(command);
             } catch (LedgerValidationException exception) {
@@ -36,6 +47,7 @@ public final class LedgerReplay {
                         exception.code(), exception.getMessage()));
             }
         }
+        engine.assessFeesThrough(lastDay);
         engine.capitalizeInterest(firstDay, lastDay);
 
         List<DailyReport> days = new ArrayList<>();
