@@ -14,7 +14,7 @@ the only direct dependency and is test-scoped. No runtime dependencies.
 ./mvnw test                 # Runs the suite; see expected failure below
 ./mvnw clean verify         # Clean build; reports the same designed failure
 ./mvnw -o test              # Offline, with Maven/dependencies already cached
-./mvnw -o package
+./mvnw -o package -DskipTests   # Builds the JAR without the designed test failure
 java -cp target/classes ledger.LedgerApplication
 ```
 
@@ -26,13 +26,44 @@ The suite intentionally contains one failing test for acceptance criterion 7.
 It demonstrates that three BHD 3.334 instalments total BHD 10.002 and therefore
 conflict with the exact BHD 10.000 source amount. See `REJECTED.md` criterion 7.
 
+## Reading the output
+
+`LedgerApplication` prints one line per account per day, Day 1 through Day 6:
+
+```text
+D6 ACC-001 ledger=AED 466.03 available=AED 466.03 interest=AED 0.19 fees=[] authorizations={Auth-A=SETTLED, Auth-B=DECLINED} errors=[]
+```
+
+| Field | Meaning |
+| --- | --- |
+| `D6 ACC-001` | Business day and account for this row. |
+| `ledger` | Closing ledger balance: opening balance plus every known entry whose value day is on or before this day, including fees and capitalized interest. |
+| `available` | Closing balance minus the holds that were approved **as of that day**, so a hold settled later still reduces the earlier day's figure. |
+| `interest` | That day's accrual alone, rounded at currency precision. It is not booked on this day; the six accruals are booked once, as the Day 6 capitalization credit already inside `ledger`. |
+| `fees` | Fee entries whose value day is this day — `OVERDRAFT_FEE`, `OVERDRAFT_FEE_REVERSAL`, or both when a fee was later reversed. Empty means no fee activity dated here. |
+| `authorizations` | Every authorization on the account created on or before this day, with the status it held on this day. |
+| `errors` | Stable rejection codes for commands **posted** on this day. A rejected command books nothing. |
+
+Two fields are dated differently on purpose: `fees` and `ledger` follow value
+day, while `errors` follows posted day, because a rejection is an event in
+processing time that never reaches the ledger timeline.
+
+Reading Day 2 across the run shows the back-valued case: E7 arrives on Day 5
+with a Day 2 value date, so the Day 2 row ends the replay showing the fee it
+caused and the reversal E9 produced.
+
 ## Structure
 
-- `src/main/java/ledger/domain/`: accounts, money, commands, entries,
-  authorizations, business errors, and post-processing domain events.
-- `src/main/java/ledger/service/`: `LedgerEngine`, replay, balance and business
-  processors, and synchronous event delivery.
-- `src/main/java/ledger/report/`: immutable daily and replay reports.
+- `src/main/java/ledger/domain/`: accounts, money, entries, authorizations,
+  domain enums, exceptions, and the append-only entry book.
+- `src/main/java/ledger/service/command/`: command model, one typed handler per
+  command type, and routing.
+- `src/main/java/ledger/service/daily/`: calendar-driven postings — overdraft
+  fee reconciliation and interest accrual with capitalization.
+- `src/main/java/ledger/service/`: engine, context and wiring, replay, and
+  balance projections.
+- `src/main/java/ledger/report/`: immutable daily and replay reports, including
+  captured replay errors.
 - `src/main/java/ledger/LedgerApplication.java`: runnable E1–E10 scenario.
 - `src/test/java/ledger/`: matching domain/service tests.
 - `DESIGN.md`, `IMPLEMENTATION_PLAN.md`, and `AMBIGUITIES.md`: architecture
@@ -44,7 +75,8 @@ conflict with the exact BHD 10.000 source amount. See `REJECTED.md` criterion 7.
 
 1. Money always has the account currency's scale: AED 2, BHD 3. Input
    precision loss is rejected; calculated rounding explicitly uses HALF_EVEN.
-2. Opening money is immutable. Account currency is derived from it.
+2. Account currency is explicit configuration, validated at construction to
+    match the immutable opening balance's currency.
 3. Input CREDIT/DEBIT amounts are positive. Credits book positive entries;
    debits book negative entries and may overdraw an account.
 4. Financial entries are immutable and append-only. `entries()` returns an
@@ -53,7 +85,7 @@ conflict with the exact BHD 10.000 source amount. See `REJECTED.md` criterion 7.
    known entries for that account with `valueDay <= day`. No balance cache
    or posted-day snapshot is authoritative.
 6. Unknown accounts, currency mismatches, blank IDs, and nonpositive days
-   are rejected. Invalid transfers do not consume IDs or move money.
+    are rejected. Invalid transfers do not consume IDs or move money.
 7. Event IDs are unique across the engine. Identical retries are no-ops;
    conflicting payloads using the same ID are rejected.
 8. Commands are processed in caller order. The engine is single-threaded.
@@ -74,30 +106,40 @@ conflict with the exact BHD 10.000 source amount. See `REJECTED.md` criterion 7.
 13. A reversal appends the exact opposite of every booked entry from its
     referenced event. Unknown, cross-account, repeated, and nonfinancial
     references are rejected without movement.
-14. Fee reconciliation examines only the financial command's value day. A
-    negative AED pre-fee balance receives AED 25 once; a later correction
-    appends a fee reversal. No AED fee is invented for BHD accounts.
+14. Fee reconciliation reevaluates every business day from a movement's value
+    day through the engine's latest processed day — the maximum posted day
+    processed so far. Caller-ordered posted days need not be monotonic, so the
+    latest processed day, not the current command's posted day, bounds
+    reconciliation. Replay extends the latest processed day through the
+    report's final day before interest capitalization.
+    Each day whose pre-fee closing balance is
+    negative — prior-day fees included, the day's own fee or reversal
+    excluded — receives AED 25 once; a later correction appends a fee reversal
+    at the original fee's value day. No AED fee is invented for BHD accounts.
 15. Daily positive-balance interest is rounded HALF_EVEN at account currency
     precision. Day 6 appends one capitalization entry per account, equal to
     the sum of its six rounded daily accruals.
 16. Instalment allocation preserves exact minor units. E10 becomes BHD 3.334,
     3.333, and 3.333. Replay catches business rejections as ProcessingError
     records and produces immutable daily reports.
-17. Successful commands publish typed domain events after their state changes.
-    Fee reconciliation subscribes to all completed financial movements.
-    Rejections and new interest capitalizations are also published. Delivery is
-    synchronous and ordered; listener failures are recorded without rolling
-    back committed ledger state or blocking later listeners.
+17. `LedgerEngine` routes validated commands through one
+    `LedgerCommandDispatcher`, which resolves the `LedgerCommandHandler` that
+    declared that command type. A handler returns the entries it booked, and an
+    empty result — an authorization reserves funds without booking money — is
+    what tells the engine no fee reconciliation is owed. Fee reconciliation and
+    interest remain separate calendar-driven processors, invoked directly. No
+    in-process event bus is used: a publisher with no subscriber would be the
+    kind of machinery `DESIGN.md` excludes by name.
 
 For example, after funding ACC-001 with AED 250:
 
 ```java
-engine.process(new LedgerCommand("E3", 2, 2, CommandType.AUTHORIZATION,
+engine.process(new LedgerCommandPayload("E3", 2, 2, CommandType.AUTHORIZATION,
         "ACC-001", Money.of(Currency.AED, "200"), "Auth-A"));
 engine.authorizations();                   // Auth-A: APPROVED
 engine.balance("ACC-001", 2);              // AED 250.00
 engine.availableBalance("ACC-001", 2);     // AED 50.00
-engine.process(new LedgerCommand("E5", 4, 4, CommandType.SETTLEMENT,
+engine.process(new LedgerCommandPayload("E5", 4, 4, CommandType.SETTLEMENT,
         "ACC-001", Money.of(Currency.AED, "185"), "Auth-A"));
 engine.authorizations();                   // Auth-A: SETTLED
 engine.balance("ACC-001", 4);              // AED 65.00
@@ -110,8 +152,10 @@ measured replay size warrants it.
 
 ## Resolved interpretation conflicts
 
-The selected fee policy reconciles only the processed command's value day, so
-E7 assesses one Day 2 fee and does not propagate fees to Days 4–5. E9 later
-appends its reversal. Auth-B is declined because E8 has insufficient available
+The selected fee policy applies the daily rule literally: a back-valued
+movement reconciles through its posted day, so E7 assesses Day 2, Day 4, and
+Day 5 fees, and E9 later appends all three reversals. The acceptance criterion
+expecting exactly one Day 2 fee is rejected; see `REJECTED.md` criterion 2.
+Auth-B is declined because E8 has insufficient available
 funds. BHD has no AED-denominated fee, interest capitalizes per account, and
 daily reports reconstruct authorization status by day. See AMBIGUITIES §§1–5.

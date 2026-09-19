@@ -22,7 +22,7 @@
 | E1 `1200.00`, E2 `950.00` AED | Supplied credit and debit; scenario tests derive a net 250.00. |
 | E3 `200.00`, E4 `400.00`, E5 `185.00`, E6 `180.00` AED | Supplied hold, credit, known settlement, and unknown settlement; no substitutions. |
 | E7 `620.00`, E8 `90.00` AED | Supplied back-valued debit and attempted hold. E9 references E7's amount rather than inventing a new one. |
-| Fee `25.00` AED | Applied once to the processed event's negative value day; BHD receives no AED fee without FX. |
+| Fee `25.00` AED | Applied once per negative closing day from a movement's value day through the engine's latest processed day; BHD receives no AED fee without FX. |
 | Daily rate `0.0004` | Exactly 0.04 / 100, with no annualization or compounding invented. |
 | Capitalization day `6` | Supplied end of window; capitalization must sum individually rounded accruals. |
 | E10 `10.000` BHD, `3` instalments | Supplied total/count; base 3.333 leaves 0.001 allocated to the first instalment: 3.334, 3.333, 3.333. |

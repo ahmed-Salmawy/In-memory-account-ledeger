@@ -13,15 +13,26 @@ while the acceptance criterion expects exactly one fee on Day 2. The
 specification also does not say how a later correction affects an existing
 fee.
 
-**Decision.** Reconcile only the processed financial command's value day. Test
-fee eligibility against the pre-fee balance so a fee cannot trigger another
-fee. If a later command makes that day non-negative, preserve the original fee
-and append an equal `OVERDRAFT_FEE_REVERSAL`.
+**Decision.** A movement reconciles every business day from its value day
+through the engine's latest processed day — the maximum posted day
+successfully processed so far — so each closing balance it retroactively
+affects is reevaluated against the non-negotiable daily rule. The latest
+processed day, not the current command's posted day, bounds reconciliation,
+because caller-ordered posted days need not be monotonic and a later-arriving
+command can change an already-seen day's closing balance; rejected commands
+never move it. The replay extends assessment through the report's final day
+before interest capitalization. Fee eligibility
+uses a pre-fee view of the target day: closing balances include prior-day fees
+and interest but exclude the target day's own fee or reversal, so a fee can
+never trigger itself. When reconciliation finds an active fee on a day that is
+no longer negative, it appends an equal `OVERDRAFT_FEE_REVERSAL` at the
+original fee's value day; nothing is edited or deleted.
 
 A reversal compensates only the referenced command's booked movement. Fee
-reconciliation then independently decides whether its derived fee remains
-valid. Consequently, E7 creates one Day 2 fee and E9 causes its append-only
-reversal.
+reconciliation then independently decides whether its derived fees remain
+valid. Consequently, E7 assesses Day 2, Day 4, and Day 5 fees, and E9 causes
+their three append-only reversals. The acceptance criterion expecting exactly
+one Day 2 fee is rejected in `REJECTED.md`.
 
 ## 2. Authorization approval and Auth-B
 
@@ -86,7 +97,12 @@ Several numerical policies are required but not fully specified:
   itself earns no Day 6 interest.
 - Split instalments in integer minor units and assign the residual to the
   earliest parts. BHD 10.000 over three parts is therefore 3.334, 3.333, and
-  3.333 rather than three entries that exceed the source total.
+  3.333 rather than three entries that exceed the source total. E10 asks for
+  "three equal instalments" of an amount that cannot be divided equally at
+  BHD precision, so the requirement is self-contradictory as supplied:
+  equality and an exact 10.000 total are mutually exclusive here. Conservation
+  of the source amount outranks equality of the parts, because an allocation
+  that creates BHD 0.002 is unbookable in any ledger.
 
 These policies keep every entry in its account currency and avoid invented FX
 or self-referential interest.
@@ -102,6 +118,6 @@ attempts. Validate before mutation so rejected commands consume no ID and move
 no money.
 
 Business rejections use `LedgerValidationException` with a stable code and are
-captured as `ProcessingError` during replay. Basic construction errors such as
-blank identifiers, invalid precision, or nonpositive days use standard Java
-exceptions.
+captured as `ProcessingError` during replay. A balance query with a nonpositive
+day uses `INVALID_BUSINESS_DAY`; construction errors such as blank identifiers,
+invalid precision, or nonpositive command days use standard Java exceptions.

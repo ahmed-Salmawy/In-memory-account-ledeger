@@ -16,14 +16,29 @@ overdraft fee, is AED -370.00:
 E7 is posted on Day 5 but has Day 2 as its value day, so it participates in the
 Day 2 value-date projection.
 
-## Criterion 2 — Accepted under the documented interpretation
+## Criterion 2 — Rejected
 
-E7 causes one overdraft fee on Day 2.
+The non-negotiable rule assesses the AED 25 fee once per account per day when
+that day's closing ledger balance, including all entries with
+`value_date <= day`, is negative. After E7 arrives (posted D5, value date D2),
+the implementation's day-by-day assessment — each closing balance including
+prior-day fees but excluding the day's own fee — is:
 
-The specification is ambiguous about whether a late back-valued command should
-trigger retrospective fees for every subsequently affected closing day. This
-implementation reconciles only the processed financial command's value day.
-See `AMBIGUITIES.md` §1.
+```text
+D1   250.00
+D2  -370.00   negative, fee assessed
+D3     5.00   positive after the Day 2 fee, no fee
+D4  -180.00   negative, fee assessed
+D5  -205.00   negative, fee assessed
+```
+
+A literal application therefore assesses fees on Days 2, 4, and 5 — not only
+Day 2. Accepting the criterion would require overriding the explicit daily rule
+with an unstated exception, so it conflicts with the specification. The
+implementation follows the rule: a back-valued movement reconciles every day
+from its value day through the latest processed day, so E7 assesses three fees,
+and E9's reconciliation appends an `OVERDRAFT_FEE_REVERSAL` for each. See
+`AMBIGUITIES.md` §1.
 
 ## Criterion 3 — Accepted
 
@@ -47,18 +62,39 @@ about how an approved hold behaves.
 ## Criterion 6 — Rejected as written
 
 The criterion says that after E9, all balances and fees return to their pre-E7
-values. The net monetary projection can return, but append-only history cannot:
+values. Balances and net fees do return, so the criterion is not rejected on
+arithmetic:
 
 ```text
-E7                       -620.00
-OVERDRAFT_FEE             -25.00
-E9 REVERSAL               620.00
-OVERDRAFT_FEE_REVERSAL     25.00
+D2 balance   1200.00 - 950.00 - 620.00 + 620.00           =  250.00
+net fees     -25.00 -25.00 -25.00 +25.00 +25.00 +25.00    =    0.00
 ```
 
-E7, its fee, E9, and the fee reversal remain permanently recorded. Therefore
-balances and net fees may reconcile to their earlier values, while ledger and
-fee history do not return to their pre-E7 state.
+Authorization state does not return. E8 requested a AED 90.00 hold on Day 5 and
+was declined because E7 had already driven available funds negative. Without
+E7, the Day 5 closing balance is AED 465.00 and Auth-B would have been
+approved. E9 restores the balance, but the decision stands: approval is
+evaluated once against the funds visible at that moment and is never re-run by
+a later movement (AMBIGUITIES §2). The Day 6 report still reads:
+
+```text
+authorizations={Auth-A=SETTLED, Auth-B=DECLINED}
+```
+
+A reversal cannot un-decline an authorization. "All balances and fees return"
+is therefore true of the numbers and false of the ledger's actual state, and a
+customer who was refused a payment on Day 5 stays refused.
+
+History does not return either. E7, its three fees, E9, and the three fee
+reversals remain permanently recorded, because corrections are new entries
+rather than deletions:
+
+```text
+E7                          -620.00
+OVERDRAFT_FEE x3             -75.00   (D2, D4, D5)
+E9 REVERSAL                  620.00
+OVERDRAFT_FEE_REVERSAL x3     75.00   (D2, D4, D5)
+```
 
 ## Criterion 7 — Rejected
 
@@ -74,6 +110,12 @@ minor-unit allocation:
 ```text
 3.334 + 3.333 + 3.333 = 10.000
 ```
+
+E10's own description carries the same defect: it asks for "three equal
+instalments" of BHD 10.000. No three equal amounts at BHD's three-decimal
+precision sum to 10.000, so equality and an exact total cannot both hold. The
+exact total wins, because inventing BHD 0.002 is the one outcome a ledger may
+never produce. See AMBIGUITIES §5.
 
 ## Criterion 8 — Rejected
 

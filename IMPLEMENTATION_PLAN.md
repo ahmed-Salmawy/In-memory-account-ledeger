@@ -45,12 +45,12 @@ Keep the account intentionally small.
 ``` text
 Account
 - accountId
+- currency: Currency
 - openingBalance: Money
-- currency: Currency (derived from openingBalance)
 ```
 
-Expose currency explicitly through the account's `currency()` accessor, derived
-from `openingBalance`. Do not store mutable ledger or available balances in
+Store the currency explicitly and validate at construction that it matches the
+opening balance's currency. Do not store mutable ledger or available balances in
 Account; derive them from the immutable opening balance, ledger entries, and
 active holds.
 
@@ -63,12 +63,12 @@ Use `BigDecimal` with explicit currency scale and rounding policy.
 
 Never use `double` or `float`.
 
-### LedgerCommand
+### LedgerCommandPayload
 
 Represents an input command from the supplied stream.
 
 ``` text
-LedgerCommand
+LedgerCommandPayload
 - eventId
 - postedDay
 - valueDay
@@ -293,29 +293,68 @@ Do not create three `3.334` entries because that totals `10.002`.
 ``` text
 domain/
   Account.java
-  Currency.java
-  LedgerCommand.java
-  CommandType.java
   LedgerEntry.java
-  LedgerEntryType.java
+  LedgerEntryBook.java
   Authorization.java
-  AuthorizationStatus.java
-  ProcessingError.java
+  Money.java
+  enums/
+    AuthorizationStatus.java
+    Currency.java
+    LedgerEntryType.java
+  exception/
+    LedgerArgumentException.java
+    LedgerValidationException.java
 
 service/
   LedgerEngine.java
-  BalanceCalculator.java
-  FeeEngine.java
-  InterestCalculator.java
-  MoneyAllocator.java
+  LedgerContext.java
+  LedgerReplay.java
+  AccountBalanceCalculator.java
+  command/
+    LedgerCommandDispatcher.java
+    dto/
+      CommandType.java
+      LedgerCommandPayload.java
+    handler/
+      LedgerCommandHandler.java
+      CreditHandler.java
+      DebitHandler.java
+      ReversalHandler.java
+      AuthorizationHandler.java
+      SettlementHandler.java
+  daily/
+    OverdraftFeeProcessor.java
+    InterestProcessor.java
 
 report/
   DailyReport.java
   ReplayReport.java
+  ProcessingError.java
+
+LedgerApplication.java
 
 test/
-  LedgerReplayTest.java
+  domain/
+    MoneyTest.java
+  service/
+    AuthorizationTest.java
+    SettlementTest.java
+    LedgerEngineTest.java
+    LedgerCommandDispatcherTest.java
+    LedgerCompletionTest.java
 ```
+
+Service packages are split by what triggers the work, not by layer.
+`command/` handles an arriving instruction: the dispatcher resolves the
+`LedgerCommandHandler` that declared that `CommandType`, and the handler
+applies its own rules, appending entries through the shared
+`LedgerEntryBook`. `daily/` holds the calendar-driven postings —
+overdraft fee reconciliation and interest — which take business days rather
+than commands. A handler returns the entries it booked, and an empty result
+means no balance moved, so no fee is owed. There is no event bus: an
+in-process publisher with no subscriber would be the machinery §Scope
+Discipline of `DESIGN.md` excludes. `LedgerContext` owns the mutable state for
+one engine and constructs everything that operates on it.
 
 Avoid unnecessary frameworks. Plain Java + JUnit is sufficient.
 

@@ -2,4 +2,8 @@
 /.idea/
 *.iml
 .DS_Store
-./IMPLEMENTATION_PLAN.md
+
+# Local tooling and notes, not part of the deliverable
+CLAUDE.md
+PRODUCTION_CONSIDERATIONS.md
+.mcp.json

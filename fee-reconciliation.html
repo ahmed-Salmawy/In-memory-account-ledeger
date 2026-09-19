@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Overdraft Fee Reconciliation — Interactive Tutorial</title>
+<style>
+  :root {
+    --ink:#1e293b; --muted:#64748b; --accent:#1e3a5f; --line:#e2e8f0;
+    --gold:#b45309; --gold-bg:#fffbeb; --red:#b91c1c; --red-bg:#fef2f2;
+    --green:#166534; --green-bg:#f0fdf4; --blue-bg:#eff6ff;
+  }
+  * { box-sizing:border-box; }
+  body { font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+         color:var(--ink); background:#f8fafc; margin:0; font-size:14px; line-height:1.5; }
+  .page { max-width:1240px; margin:0 auto; padding:20px 18px 60px; }
+  header.hero { background:var(--accent); color:#fff; border-radius:12px; padding:18px 24px; margin-bottom:16px;
+                display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; }
+  header.hero h1 { margin:0; font-size:20px; }
+  header.hero p { margin:2px 0 0; color:#cbd5e1; font-size:13px; }
+  .tabs { display:flex; gap:8px; }
+  .tab { border:1px solid rgba(255,255,255,.4); background:transparent; color:#fff;
+         padding:7px 16px; border-radius:99px; cursor:pointer; font-size:13px; font-weight:600; }
+  .tab.active { background:#fff; color:var(--accent); }
+  .layout { display:grid; grid-template-columns:320px 1fr; gap:14px; align-items:start; }
+  @media (max-width:980px){ .layout{ grid-template-columns:1fr; } }
+  .card { background:#fff; border:1px solid var(--line); border-radius:10px; padding:14px 16px; margin-bottom:14px; }
+  .card h3 { margin:0 0 10px; font-size:14px; color:var(--accent); text-transform:uppercase; letter-spacing:.6px; }
+  button.btn { border:1px solid var(--accent); background:#fff; color:var(--accent); font-weight:600;
+               padding:7px 14px; border-radius:8px; cursor:pointer; font-size:13px; }
+  button.btn:hover { background:var(--blue-bg); }
+  button.btn.primary { background:var(--accent); color:#fff; }
+  button.btn.primary:hover { background:#2a4d7f; }
+  button.btn:disabled { opacity:.45; cursor:not-allowed; }
+  button.small { padding:4px 10px; font-size:12px; }
+  /* command queue */
+  .cmd { display:flex; gap:8px; align-items:baseline; padding:6px 8px; border-radius:8px; margin:3px 0;
+         border:1px solid transparent; cursor:pointer; }
+  .cmd:hover { background:var(--blue-bg); }
+  .cmd.current { border-color:var(--accent); background:var(--blue-bg); }
+  .cmd .id { font-family:ui-monospace,Menlo,monospace; font-weight:700; width:34px; }
+  .cmd .meta { color:var(--muted); font-size:12px; }
+  .badge { display:inline-block; font-size:10.5px; font-weight:700; padding:1px 8px; border-radius:99px; }
+  .badge.ok { background:var(--green-bg); color:var(--green); }
+  .badge.rej { background:var(--red-bg); color:var(--red); }
+  .badge.retry { background:#f1f5f9; color:#475569; }
+  .badge.fee { background:#fef3c7; color:#92400e; }
+  .badge.rev { background:#dcfce7; color:#166534; }
+  .badge.none { background:#f1f5f9; color:#475569; }
+  .badge.acc { background:#dbeafe; color:#1e40af; }
+  .badge.dec { background:#fae8ff; color:#86198f; }
+  /* step view */
+  .outcome { font-size:13px; margin:6px 0 10px; padding:8px 12px; border-radius:8px; }
+  .outcome.ok { background:var(--green-bg); color:var(--green); }
+  .outcome.rej { background:var(--red-bg); color:var(--red); }
+  .outcome.retry { background:#f1f5f9; color:#475569; }
+  .bound { font-family:ui-monospace,Menlo,monospace; font-size:12.5px; background:#0f172a; color:#e2e8f0;
+           padding:7px 12px; border-radius:8px; display:inline-block; margin:4px 0 10px; }
+  table { border-collapse:collapse; width:100%; margin:8px 0; font-size:12.5px; background:#fff; }
+  th,td { border:1px solid var(--line); padding:5px 8px; text-align:left; }
+  th { background:#eff6ff; color:var(--accent); }
+  td.num { text-align:right; font-variant-numeric:tabular-nums; font-family:ui-monospace,Menlo,monospace; }
+  tr.feeRow td { background:var(--gold-bg); }
+  tr.revRow td { background:var(--green-bg); }
+  tr.skipRow td { color:var(--muted); }
+  .phase { font-weight:700; color:var(--accent); margin:12px 0 2px; font-size:13px; }
+  .phase small { color:var(--muted); font-weight:400; }
+  .entryrow { font-family:ui-monospace,Menlo,monospace; font-size:12px; padding:3px 8px; border-radius:6px; margin:2px 0; }
+  .entryrow.new { background:var(--gold-bg); }
+  .entryrow.fee { color:#92400e; } .entryrow.rev { color:var(--green); }
+  .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:800px){ .grid2{ grid-template-columns:1fr; } }
+  .log { max-height:340px; overflow-y:auto; }
+  .hint { color:var(--muted); font-size:12.5px; margin:6px 0; }
+  form .row { display:flex; gap:8px; margin:6px 0; flex-wrap:wrap; }
+  form label { font-size:12px; color:var(--muted); display:block; margin-bottom:2px; }
+  form input, form select { border:1px solid var(--line); border-radius:7px; padding:6px 8px; font-size:13px; width:100%; }
+  .field { flex:1; min-width:100px; }
+  details { margin-top:10px; }
+  summary { cursor:pointer; font-weight:600; color:var(--accent); }
+  .kbd { font-family:ui-monospace,Menlo,monospace; background:#eef2f7; padding:1px 5px; border-radius:4px; font-size:12px; }
+</style>
+</head>
+<body>
+<div class="page">
+
+<header class="hero">
+  <div>
+    <h1>Overdraft Fee Reconciliation — Interactive Tutorial</h1>
+    <p>Step through the E1–E10 replay and watch every fee decision, or craft your own commands in the sandbox.</p>
+  </div>
+  <div class="tabs">
+    <button class="tab active" id="tabGuided">Guided replay</button>
+    <button class="tab" id="tabSandbox">Sandbox</button>
+  </div>
+</header>
+
+<div class="layout">
+  <!-- LEFT COLUMN -->
+  <div>
+    <div class="card" id="guidedControls">
+      <h3>Guided replay · E1–E10</h3>
+      <div style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:8px;">
+        <button class="btn primary" id="btnNext">Next ▸</button>
+        <button class="btn" id="btnAuto">Auto ▶▶</button>
+        <button class="btn" id="btnPrev">◂ Prev</button>
+        <button class="btn" id="btnReset">Reset</button>
+      </div>
+      <div id="queue"></div>
+      <p class="hint">Click any command to jump. The engine state (entries, active fees, latest
+      processed day) is rebuilt by replaying from the start — exactly like the real deterministic engine.</p>
+    </div>
+
+    <div class="card" id="sandboxControls" style="display:none;">
+      <h3>Sandbox · craft a command</h3>
+      <form id="sbForm">
+        <div class="row">
+          <div class="field"><label>Command ID</label><input id="sbId" value="X1"></div>
+          <div class="field"><label>Account</label>
+            <select id="sbAcc"><option>ACC-001 (AED)</option><option>ACC-002 (BHD)</option></select></div>
+        </div>
+        <div class="row">
+          <div class="field"><label>Type</label>
+            <select id="sbType"><option>CREDIT</option><option>DEBIT</option><option>AUTHORIZATION</option>
+            <option>SETTLEMENT</option><option>REVERSAL</option></select></div>
+          <div class="field"><label>Amount (account currency)</label><input id="sbAmt" value="100"></div>
+        </div>
+        <div class="row">
+          <div class="field"><label>Posted day</label><input id="sbPosted" type="number" min="1" max="9" value="2"></div>
+          <div class="field"><label>Value day</label><input id="sbValue" type="number" min="1" max="9" value="2"></div>
+        </div>
+        <div class="row" id="sbAuthRow" style="display:none;">
+          <div class="field"><label>Authorization ID</label><input id="sbAuthId" placeholder="Auth-X"></div>
+          <div class="field"><label>Settle / reverse target</label><select id="sbTarget"></select></div>
+        </div>
+        <div class="row">
+          <button class="btn primary" type="submit">Process command</button>
+          <button class="btn" type="button" id="sbRetry">Resubmit identical (retry test)</button>
+          <button class="btn" type="button" id="sbPrev">◂ Prev</button>
+          <button class="btn" type="button" id="sbReset">Reset</button>
+        </div>
+      </form>
+      <p class="hint">Try: a back-valued debit (posted 5, value 2) on a funded account · an authorization
+      that advances the day · a settlement against <span class="kbd">Auth-Z</span> (unknown) · resubmitting
+      the same command (idempotent retry) · reusing an ID with a different amount (conflict).</p>
+    </div>
+
+    <div class="card">
+      <h3>Latest processed day</h3>
+      <div id="boundPanel"></div>
+      <p class="hint">The reconciliation bound: the maximum posted day of any <b>successfully processed</b>
+      command. Rejected commands never move it.</p>
+    </div>
+
+    <div class="card">
+      <h3>Active holds</h3>
+      <div id="holdPanel"></div>
+    </div>
+
+    <div class="card">
+      <h3>Rejections</h3>
+      <div id="errorPanel"></div>
+    </div>
+  </div>
+
+  <!-- RIGHT COLUMN -->
+  <div>
+    <div class="card" id="stepCard">
+      <h3>Step trace</h3>
+      <div id="stepView"><p class="hint">Press <b>Next ▸</b> to process the first command.
+      Every fee decision the engine makes will appear here with its eligibility math.</p></div>
+    </div>
+
+    <div class="grid2">
+      <div class="card">
+        <h3>Day projections</h3>
+        <div id="dayPanel"></div>
+      </div>
+      <div class="card">
+        <h3>Append-only ledger entries</h3>
+        <div id="entryPanel" class="log"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>The rules this simulator implements</h3>
+      <details open>
+        <summary>The daily rule & the four-way decision</summary>
+        <p>AED <b>25.00</b> is assessed once per account per day when that day's closing ledger
+        balance — all entries with <span class="kbd">valueDay ≤ day</span> — is negative. The eligibility
+        check includes <b>prior-day fees</b> but excludes <b>the day's own fee or reversal</b>, so a fee can
+        never trigger itself:</p>
+        <table>
+          <tr><th>Pre-fee balance</th><th>Active fee that day?</th><th>Outcome</th></tr>
+          <tr class="feeRow"><td>negative</td><td>none</td><td><span class="badge fee">FEE</span> −25.00 at that day</td></tr>
+          <tr><td>negative</td><td>active</td><td><span class="badge none">NONE</span> already charged</td></tr>
+          <tr><td>non-negative</td><td>none</td><td><span class="badge none">NONE</span></td></tr>
+          <tr class="revRow"><td>non-negative</td><td>active</td><td><span class="badge rev">REVERSAL</span> +25.00 at the original fee's day</td></tr>
+        </table>
+      </details>
+      <details>
+        <summary>Three triggers</summary>
+        <p><b>1 · Movement</b> — every booked movement walks its value day through the latest processed
+        day (back-valued E7 walks D2→D5). <b>2 · Day advancement</b> — when a successful command moves the
+        latest processed day forward, the new days are assessed for <b>every</b> account, even if the
+        command booked nothing (authorizations!). <b>3 · Report boundary</b> — replay assessment extends to
+        the final report day before interest capitalization.</p>
+      </details>
+      <details>
+        <summary>Why the bound is not the command's own posted day</summary>
+        <p>Caller order is authoritative and posted days need not be monotonic: a later-arriving command
+        posted D5 can change an already-seen D6 closing. Rejected commands never move the bound —
+        try the sandbox: a command posted on day 9 that gets rejected leaves everything untouched.</p>
+      </details>
+      <details>
+        <summary>Scope notes</summary>
+        <p>Only fee reconciliation is simulated — interest capitalization and instalment allocation are
+        simplified (E10 books 3.334/3.333/3.333 BHD but no interest is accrued). Amounts are exact
+        minor units; no floating point.</p>
+      </details>
+    </div>
+  </div>
+</div>
+</div>
+
+<script>
+/* ================= MODEL (pure, mirrors OverdraftFeeProcessor semantics) ================= */
+const SCALE = { 'ACC-001': 2, 'ACC-002': 3 };
+const OPENING = { 'ACC-001': 0, 'ACC-002': 0 };
+const FEE = 2500; // AED 25.00 in minor units
+const FEE_TYPES = new Set(['OVERDRAFT_FEE', 'OVERDRAFT_FEE_REVERSAL']);
+const FINANCIAL = new Set(['CREDIT', 'DEBIT', 'SETTLEMENT', 'REVERSAL', 'OVERDRAFT_FEE', 'OVERDRAFT_FEE_REVERSAL']);
+
+function newState() {
+  return { entries: [], activeFees: {}, cycles: {}, latest: 0,
+           commands: {}, auths: {}, reversed: {}, errors: [] };
+}
+const isFee = e => FEE_TYPES.has(e.type);
+
+function balance(st, acc, day) {
+  let b = OPENING[acc];
+  for (const e of st.entries) if (e.account === acc && e.valueDay <= day) b += e.amount;
+  return b;
+}
+/* preFeeBalance: prior-day fees IN, the day's own fee/reversal OUT */
+function preFee(st, acc, day) {
+  let movements = OPENING[acc], priorFees = 0;
+  for (const e of st.entries) {
+    if (e.account !== acc || e.valueDay > day) continue;
+    if (isFee(e)) { if (e.valueDay < day) priorFees += e.amount; }
+    else movements += e.amount;
+  }
+  return { elig: movements + priorFees, movements, priorFees };
+}
+function available(st, acc, day) {
+  let a = balance(st, acc, day);
+  for (const id in st.auths) {
+    const h = st.auths[id];
+    if (h.account === acc && h.status === 'APPROVED') a -= h.amount;
+  }
+  return a;
+}
+function fmt(minor, acc) {
+  const s = SCALE[acc], sign = minor < 0 ? '−' : '', v = Math.abs(minor).toString().padStart(s + 1, '0');
+  return sign + v.slice(0, -s) + '.' + v.slice(-s);
+}
+
+function reconcileDay(st, acc, day, walk, tag) {
+  if (SCALE[acc] !== 2) { walk.push({ day, tag, skip: 'BHD account — no AED fee policy' }); return; }
+  const key = acc + '/D' + day;
+  const { elig, movements, priorFees } = preFee(st, acc, day);
+  const active = st.activeFees[key] || null;
+  const row = { day, tag, elig, movements, priorFees, active: !!active, booked: null };
+  if (elig < 0 && !active) {
+    const cycle = (st.cycles[key] = (st.cycles[key] || 0) + 1);
+    const id = 'fee:' + key + '/OVERDRAFT' + (cycle === 1 ? '' : ':' + cycle);
+    const entry = { id, account: acc, type: 'OVERDRAFT_FEE', amount: -FEE, valueDay: day, source: 'reconciliation' };
+    st.entries.push(entry); st.activeFees[key] = entry;
+    row.decision = 'FEE'; row.booked = id;
+  } else if (elig >= 0 && active) {
+    const id = 'fee-reversal:' + active.id;
+    const entry = { id, account: acc, type: 'OVERDRAFT_FEE_REVERSAL', amount: FEE,
+                    valueDay: active.valueDay, source: 'reconciliation', ref: active.id };
+    st.entries.push(entry); delete st.activeFees[key];
+    row.decision = 'REVERSAL'; row.booked = id;
+  } else {
+    row.decision = 'NONE';
+  }
+  walk.push(row);
+}
+function reconcileSpan(st, acc, first, last, walk, tag) {
+  for (let d = Math.max(1, first); d <= last; d++) reconcileDay(st, acc, d, walk, tag);
+}
+function sweepNewDays(st, from, to, walk) {
+  for (let d = from + 1; d <= to; d++)
+    for (const acc in SCALE) reconcileDay(st, acc, d, walk, 'SWEEP · newly reached day D' + d);
+}
+
+function process(st, cmd) {
+  const step = { cmd, outcome: 'PROCESSED', walks: [], booked: [], notes: [], entriesBefore: st.entries.length };
+  const prev = st.commands[cmd.id];
+  if (prev) {
+    if (JSON.stringify(prev) === JSON.stringify(cmd)) {
+      step.outcome = 'RETRY';
+      step.notes.push('Identical retry — silent no-op. Bound stays at D' + st.latest +
+                      ', no entries, no fees.');
+      return step;
+    }
+    return reject(st, step, 'CONFLICTING_EVENT_ID', 'The ID was already used with a different payload.');
+  }
+  if (cmd.type === 'REVERSAL') {
+    const original = st.commands[cmd.refId];
+    if (!original) return reject(st, step, 'UNKNOWN_EVENT', 'Reference ' + cmd.refId + ' was never processed.');
+    if (original.account !== cmd.account) return reject(st, step, 'EVENT_ACCOUNT_MISMATCH', 'Reference belongs to another account.');
+    if (st.reversed[cmd.refId]) return reject(st, step, 'EVENT_ALREADY_REVERSED', cmd.refId + ' was already reversed.');
+    const originals = st.entries.filter(e => e.sourceEventId === cmd.refId && FINANCIAL.has(e.type) && !isFee(e));
+    if (!originals.length) return reject(st, step, 'EVENT_NOT_REVERSALBE'.replace('AL', 'LE'), 'No reversible movement.');
+  }
+  if (cmd.type === 'SETTLEMENT') {
+    const h = st.auths[cmd.authId];
+    if (!h) return reject(st, step, 'UNKNOWN_AUTHORIZATION', 'No authorization "' + cmd.authId + '" exists.');
+    if (h.account !== cmd.account) return reject(st, step, 'AUTHORIZATION_ACCOUNT_MISMATCH', 'Hold belongs to another account.');
+    if (h.status !== 'APPROVED') return reject(st, step, 'AUTHORIZATION_NOT_APPROVED', 'Hold is ' + h.status + '.');
+    if (cmd.amount > h.amount) return reject(st, step, 'SETTLEMENT_EXCEEDS_AUTHORIZATION', 'Capture exceeds the authorized amount.');
+  }
+  if (cmd.type === 'AUTHORIZATION' && st.auths[cmd.authId]) {
+    return reject(st, step, 'DUPLICATE_AUTHORIZATION_ID', 'Authorization ID already used.');
+  }
+  if (cmd.type !== 'REVERSAL' && cmd.amount <= 0) {
+    return reject(st, step, 'NONPOSITIVE_AMOUNT', 'Input transfers are positive magnitudes.');
+  }
+  if (cmd.posted < 1 || cmd.value < 1) {
+    return reject(st, step, 'INVALID_DAY', 'Business days must be positive.');
+  }
+
+  /* --- book --- */
+  const book = (type, amount, valueDay, source, ref) => {
+    const parts = cmd.instalments || null;
+    const id = 'event:' + cmd.id + (parts ? ':' + source : '');
+    const e = { id, account: cmd.account, type, amount, valueDay, sourceEventId: cmd.id, ref: ref || null };
+    st.entries.push(e); step.booked.push(e); return e;
+  };
+  if (cmd.type === 'CREDIT') {
+    (cmd.instalments || [cmd.amount]).forEach((a, i, arr) =>
+      book('CREDIT', a, cmd.value, arr.length > 1 ? i + 1 : null));
+  } else if (cmd.type === 'DEBIT') {
+    book('DEBIT', -cmd.amount, cmd.value);
+  } else if (cmd.type === 'AUTHORIZATION') {
+    const rem = available(st, cmd.account, cmd.posted) - cmd.amount;
+    const status = rem >= 0 ? 'APPROVED' : 'DECLINED';
+    st.auths[cmd.authId] = { id: cmd.authId, account: cmd.account, amount: cmd.amount,
+                             createdDay: cmd.posted, status };
+    step.notes.push('Hold ' + cmd.authId + ' ' + status + ' — available through D' + cmd.posted +
+                    ' was ' + fmt(available(st, cmd.account, cmd.posted) + (status === 'APPROVED' ? cmd.amount : 0), cmd.account) +
+                    ' minus ' + fmt(cmd.amount, cmd.account) + ' → ' + (rem >= 0 ? 'non-negative' : 'negative') +
+                    '. Holds never book entries.');
+  } else if (cmd.type === 'SETTLEMENT') {
+    book('SETTLEMENT', -cmd.amount, cmd.value, null, cmd.authId);
+    st.auths[cmd.authId].status = 'SETTLED';
+    step.notes.push('Hold ' + cmd.authId + ' released completely (capture was partial).');
+  } else if (cmd.type === 'REVERSAL') {
+    const originals = st.entries.filter(e => e.sourceEventId === cmd.refId && FINANCIAL.has(e.type) && !isFee(e));
+    originals.forEach(o => book('REVERSAL', -o.amount, cmd.value, null, o.id));
+    st.reversed[cmd.refId] = true;
+  }
+  st.commands[cmd.id] = JSON.parse(JSON.stringify(cmd));
+
+  /* --- advance bound, reconcile, sweep --- */
+  const prevLatest = st.latest;
+  st.latest = Math.max(st.latest, cmd.posted);
+  if (st.latest !== prevLatest) step.notes.push('Latest processed day ' + prevLatest + ' → ' + st.latest + '.');
+  const moves = FINANCIAL.has(cmd.type);
+  if (moves) reconcileSpan(st, cmd.account, cmd.value, st.latest, step.walks, 'WALK · ' + cmd.account + ' D' + cmd.value + '→D' + st.latest);
+  else if (cmd.type === 'AUTHORIZATION') step.notes.push('No movement — no per-movement walk for this account.');
+  const sweepStart = step.walks.length;
+  sweepNewDays(st, prevLatest, st.latest, step.walks);
+  if (step.walks.length === sweepStart && !moves && cmd.value > st.latest)
+    step.notes.push('Post-dated value day D' + cmd.value + ' sits ahead of the bound — it will be assessed when the day is reached.');
+  step.booked = st.entries.slice(step.entriesBefore);
+  return step;
+}
+function reject(st, step, code, why) {
+  step.outcome = 'REJECTED'; step.code = code; step.why = why;
+  st.errors.push({ id: step.cmd.id, code, day: step.cmd.posted });
+  step.notes.push('Latest processed day unchanged at D' + st.latest + ' — failed operations consume nothing.');
+  return step;
+}
+
+/* ================= GUIDED SCENARIO (E1–E10) ================= */
+const GUIDED = [
+  { id:'E1',  type:'CREDIT',        account:'ACC-001', posted:1, value:1, amount:120000 },
+  { id:'E2',  type:'DEBIT',         account:'ACC-001', posted:1, value:1, amount:95000 },
+  { id:'E3',  type:'AUTHORIZATION', account:'ACC-001', posted:2, value:2, amount:20000, authId:'Auth-A' },
+  { id:'E4',  type:'CREDIT',        account:'ACC-001', posted:3, value:3, amount:40000 },
+  { id:'E5',  type:'SETTLEMENT',    account:'ACC-001', posted:4, value:4, amount:18500, authId:'Auth-A' },
+  { id:'E6',  type:'SETTLEMENT',    account:'ACC-001', posted:4, value:4, amount:18000, authId:'Auth-Z' },
+  { id:'E7',  type:'DEBIT',         account:'ACC-001', posted:5, value:2, amount:62000 },
+  { id:'E8',  type:'AUTHORIZATION', account:'ACC-001', posted:5, value:5, amount:9000,  authId:'Auth-B' },
+  { id:'E9',  type:'REVERSAL',      account:'ACC-001', posted:6, value:2, refId:'E7' },
+  { id:'E10', type:'CREDIT',        account:'ACC-002', posted:5, value:5, amount:10000, instalments:[3334,3333,3333] },
+];
+
+/* ================= APP STATE / HISTORY ================= */
+let mode = 'guided';
+let g = freshSession();           // guided session
+let s = freshSession();           // sandbox session
+function freshSession() {
+  return { st: newState(), idx: 0, steps: [], history: [JSON.stringify(newState())], auto: null };
+}
+const active = () => mode === 'guided' ? g : s;
+
+function snapshot() { const S = active(); S.history.push(JSON.stringify(S.st)); S.steps.push(null); }
+function advance(step) {
+  const S = active();
+  S.steps[S.steps.length - 1] = step;
+  if (mode === 'guided') S.idx++;
+  renderStep(step); renderAll();
+}
+function goNext() {
+  const S = active();
+  if (mode === 'guided') {
+    if (S.idx >= GUIDED.length) return;
+    snapshot();
+    advance(process(S.st, GUIDED[S.idx]));
+  } else {
+    const cmd = readForm();
+    if (!cmd) return;
+    snapshot();
+    advance(process(S.st, cmd));
+  }
+}
+function goPrev() {
+  const S = active();
+  if (S.history.length <= 1) return;
+  S.history.pop(); S.steps.pop();
+  S.st = JSON.parse(S.history[S.history.length - 1]);
+  if (mode === 'guided') S.idx--;
+  setStepCardPlaceholder('Stepped back — state restored to the previous command boundary.');
+  renderAll();
+}
+function goReset() {
+  if (mode === 'guided') g = freshSession(); else s = freshSession();
+  setStepCardPlaceholder('Reset. Press <b>Next ▸</b> to process the first command.');
+  renderAll();
+}
+function jumpTo(i) {
+  if (mode !== 'guided') return;
+  g = freshSession(); g.idx = i;
+  for (let k = 0; k < i; k++) process(g.st, GUIDED[k]);
+  g.steps = GUIDED.slice(0, i).map(() => null);
+  g.history = [JSON.stringify(g.st)];
+  setStepCardPlaceholder('Jumped to command ' + (i + 1) + ' of ' + GUIDED.length + '.');
+  renderAll();
+}
+
+/* ================= RENDERING ================= */
+const $ = id => document.getElementById(id);
+function setStepCardPlaceholder(html) { $('stepView').innerHTML = '<p class="hint">' + html + '</p>'; }
+
+function renderStep(step) {
+  if (!step) return;
+  const c = step.cmd;
+  let html = '';
+  const desc = { CREDIT: 'credit', DEBIT: 'debit', AUTHORIZATION: 'authorization hold',
+                 SETTLEMENT: 'settlement', REVERSAL: 'reversal of ' + (c.refId || '') }[c.type];
+  html += '<p><span class="kbd">' + c.id + '</span> <b>' + desc + '</b> on <span class="kbd">' + c.account +
+          '</span> · posted D' + c.posted + ' · value D' + c.value +
+          (c.authId ? ' · hold <span class="kbd">' + c.authId + '</span>' : '') +
+          (c.amount ? ' · ' + fmt(c.type === 'DEBIT' || c.type === 'SETTLEMENT' ? -c.amount : c.amount, c.account) : '') + '</p>';
+  if (step.outcome === 'REJECTED') {
+    html += '<div class="outcome rej"><b>REJECTED — ' + step.code + '.</b> ' + step.why + '</div>';
+  } else if (step.outcome === 'RETRY') {
+    html += '<div class="outcome retry"><b>IDENTICAL RETRY — silent no-op.</b></div>';
+  } else {
+    html += '<div class="outcome ok"><b>PROCESSED.</b> ' + (step.booked.length || 'No') +
+            ' ledger ' + (step.booked.length === 1 ? 'entry' : 'entries') + ' appended.</div>';
+  }
+  (step.notes || []).forEach(n => html += '<p class="hint">• ' + n + '</p>');
+  (step.walks || []).forEach(w => {
+    if (!w.length) return;
+    const tag = w[0].tag.split('·')[0].trim();
+    const span = w[0].tag.split('·')[1] || '';
+    html += '<div class="phase">' + tag + ' <small>' + span + '</small></div>';
+    html += '<table><tr><th class="num">Day</th><th>Movements</th><th>Prior fees</th><th>Eligibility</th><th>Active fee</th><th>Decision</th></tr>';
+    w.forEach(r => {
+      if (r.skip) { html += '<tr class="skipRow"><td class="num">D' + r.day + '</td><td colspan="5">' + r.skip + '</td></tr>'; return; }
+      const cls = r.decision === 'FEE' ? 'feeRow' : r.decision === 'REVERSAL' ? 'revRow' : '';
+      html += '<tr class="' + cls + '"><td class="num">D' + r.day + '</td>' +
+        '<td class="num">' + fmt(r.movements, c.account) + '</td>' +
+        '<td class="num">' + fmt(r.priorFees, c.account) + '</td>' +
+        '<td class="num"><b>' + fmt(r.elig, c.account) + '</b></td>' +
+        '<td>' + (r.active ? 'yes' : 'no') + '</td>' +
+        '<td>' + decisionBadge(r) + '</td></tr>';
+    });
+    html += '</table>';
+  });
+  if (step.booked && step.booked.length) {
+    html += '<div class="phase">Entries appended <small>append-only, in order</small></div>';
+    step.booked.forEach(e => {
+      html += '<div class="entryrow ' + (isFee(e) ? (e.amount < 0 ? 'fee' : 'rev') : 'new') + '">' + e.id +
+              ' · ' + e.type + ' · ' + fmt(e.amount, e.account) + ' @ D' + e.valueDay + '</div>';
+    });
+  }
+  $('stepView').innerHTML = html;
+}
+function decisionBadge(r) {
+  if (r.skip) return '';
+  if (r.decision === 'FEE') return '<span class="badge fee">FEE −25.00</span>';
+  if (r.decision === 'REVERSAL') return '<span class="badge rev">REVERSAL +25.00</span>';
+  return '<span class="badge none">NONE</span> ' +
+         (r.elig < 0 ? 'already charged' : 'non-negative');
+}
+function renderAll() {
+  const S = active(), st = S.st;
+  $('boundPanel').innerHTML = '<span class="bound">latestProcessedDay = D' + st.latest + '</span>';
+  /* queue */
+  if (mode === 'guided') {
+    let q = '';
+    GUIDED.forEach((c, i) => {
+      const step = S.steps[i];
+      const st8 = step ? step.outcome : (i === S.idx ? 'CURRENT' : '');
+      const badge = step ? (step.outcome === 'REJECTED' ? '<span class="badge rej">rejected</span>'
+        : step.outcome === 'RETRY' ? '<span class="badge retry">retry</span>' : '<span class="badge ok">processed</span>')
+        : st8 === 'CURRENT' ? '<span class="badge acc">next</span>' : '';
+      q += '<div class="cmd ' + (i === S.idx ? 'current' : '') + '" onclick="jumpTo(' + i + ')">' +
+           '<span class="id">' + c.id + '</span><span class="meta">' + c.type.toLowerCase() +
+           ' · posted D' + c.posted + ' · value D' + c.value + '</span><span style="margin-left:auto">' + badge + '</span></div>';
+    });
+    $('queue').innerHTML = q;
+    $('btnNext').disabled = S.idx >= GUIDED.length;
+    $('btnPrev').disabled = S.history.length <= 1;
+    $('btnAuto').disabled = S.idx >= GUIDED.length;
+  } else {
+    $('btnNext').disabled = false; $('btnPrev').disabled = S.history.length <= 1; $('btnAuto').disabled = true;
+  }
+  /* day projections */
+  let dayHtml = '';
+  for (const acc in SCALE) {
+    dayHtml += '<p style="margin:6px 0 2px"><b>' + acc + '</b> <span class="hint">(' + (SCALE[acc] === 2 ? 'AED, fee-eligible' : 'BHD, never charged') + ')</span></p>';
+    dayHtml += '<table><tr><th class="num">Day</th><th class="num">Closing</th><th>Fees landing</th></tr>';
+    for (let d = 1; d <= 6; d++) {
+      const b = balance(st, acc, d);
+      const fees = st.entries.filter(e => e.account === acc && e.valueDay === d && isFee(e));
+      dayHtml += '<tr' + (b < 0 ? ' class="feeRow"' : '') + '><td class="num">D' + d + '</td><td class="num">' +
+                 fmt(b, acc) + '</td><td>' + (fees.length
+                   ? fees.map(e => '<span class="badge ' + (e.amount < 0 ? 'fee' : 'rev') + '">' +
+                      (e.amount < 0 ? 'FEE' : 'REVERSAL') + '</span>').join(' ') : '—') + '</td></tr>';
+    }
+    dayHtml += '</table>';
+  }
+  $('dayPanel').innerHTML = dayHtml;
+  /* entries */
+  $('entryPanel').innerHTML = st.entries.length
+    ? st.entries.map(e => '<div class="entryrow ' + (isFee(e) ? (e.amount < 0 ? 'fee' : 'rev') : '') + '">' +
+        e.id + ' · ' + e.account + ' · ' + e.type + ' · ' + fmt(e.amount, e.account) + ' @ D' + e.valueDay + '</div>').join('')
+    : '<p class="hint">No entries yet.</p>';
+  /* holds */
+  const holds = Object.values(st.auths);
+  $('holdPanel').innerHTML = holds.length
+    ? holds.map(h => '<span class="badge ' + (h.status === 'APPROVED' ? 'acc' : h.status === 'SETTLED' ? 'rev' : 'retry') + '">' +
+        h.id + ' · ' + h.status + '</span> ' + fmt(h.amount, h.account)).join('<br>')
+    : '<p class="hint">No authorization attempts yet.</p>';
+  /* errors */
+  $('errorPanel').innerHTML = st.errors.length
+    ? st.errors.map(e => '<span class="badge rej">' + e.code + '</span> <span class="kbd">' + e.id + '</span> (posted D' + e.day + ')').join('<br>')
+    : '<p class="hint">Nothing rejected.</p>';
+  if (mode === 'sandbox') refreshTargets();
+}
+
+/* ================= SANDBOX FORM ================= */
+function readForm() {
+  const acc = $('sbAcc').value.startsWith('ACC-001') ? 'ACC-001' : 'ACC-002';
+  const type = $('sbType').value;
+  const cmd = { id: $('sbId').value.trim() || 'X1', type, account: acc,
+                posted: +$('sbPosted').value, value: +$('sbValue').value, amount: 0 };
+  if (type !== 'REVERSAL') {
+    const v = Math.round(parseFloat($('sbAmt').value || '0') * Math.pow(10, SCALE[acc]));
+    cmd.amount = isNaN(v) ? 0 : v;
+  }
+  if (type === 'AUTHORIZATION' || type === 'SETTLEMENT') cmd.authId = $('sbAuthId').value.trim();
+  if (type === 'SETTLEMENT') cmd.authId = $('sbTarget').value;
+  if (type === 'REVERSAL') cmd.refId = $('sbTarget').value;
+  return cmd;
+}
+function refreshTargets() {
+  const st = s.st, sel = $('sbTarget'), type = $('sbType').value;
+  let opts = [];
+  if (type === 'SETTLEMENT') opts = Object.values(st.auths).map(h => h.id + ' · ' + h.status);
+  else if (type === 'REVERSAL') opts = Object.keys(st.commands).filter(id => {
+    const c = st.commands[id];
+    return FINANCIAL.has(c.type) && !st.reversed[id];
+  });
+  sel.innerHTML = opts.length ? opts.map(o => '<option>' + o.split(' · ')[0] + '</option>').join('')
+                              : '<option value="">— nothing available —</option>';
+}
+$('sbType').addEventListener('change', () => {
+  const t = $('sbType').value;
+  $('sbAmt').disabled = t === 'REVERSAL';
+  $('sbAuthRow').style.display = (t === 'AUTHORIZATION' || t === 'SETTLEMENT' || t === 'REVERSAL') ? 'flex' : 'none';
+  $('sbAuthId').parentElement.style.display = (t === 'AUTHORIZATION' || t === 'SETTLEMENT') ? 'block' : 'none';
+  $('sbTarget').parentElement.style.display = (t === 'SETTLEMENT' || t === 'REVERSAL') ? 'block' : 'none';
+  if (t === 'SETTLEMENT' || t === 'REVERSAL') refreshTargets();
+});
+$('sbForm').addEventListener('submit', e => { e.preventDefault(); goNext(); });
+$('sbRetry').addEventListener('click', () => {
+  const S = s, last = S.steps[S.steps.length - 1];
+  if (last && last.cmd) { snapshot(); advance(process(S.st, last.cmd)); }
+});
+
+/* ================= MODE / CONTROL WIRING ================= */
+function setMode(m) {
+  mode = m; stopAuto();
+  $('tabGuided').classList.toggle('active', m === 'guided');
+  $('tabSandbox').classList.toggle('active', m === 'sandbox');
+  $('guidedControls').style.display = m === 'guided' ? 'block' : 'none';
+  $('sandboxControls').style.display = m === 'sandbox' ? 'block' : 'none';
+  setStepCardPlaceholder(m === 'guided'
+    ? 'Press <b>Next ▸</b> to process the first command. Every fee decision the engine makes will appear here with its eligibility math.'
+    : 'Craft a command on the left and process it. The state starts empty — fund the account first or watch fees appear on negative openings.');
+  renderAll();
+}
+$('tabGuided').onclick = () => setMode('guided');
+$('tabSandbox').onclick = () => setMode('sandbox');
+$('btnNext').onclick = goNext;
+$('btnPrev').onclick = goPrev;
+$('btnReset').onclick = goReset;
+$('sbPrev').onclick = goPrev;
+$('sbReset').onclick = goReset;
+function stopAuto() { if (g.auto) { clearInterval(g.auto); g.auto = null; $('btnAuto').textContent = 'Auto ▶▶'; } }
+$('btnAuto').onclick = () => {
+  if (g.auto) { stopAuto(); return; }
+  $('btnAuto').textContent = 'Stop ■';
+  g.auto = setInterval(() => { if (g.idx >= GUIDED.length) stopAuto(); else goNext(); }, 1200);
+};
+
+renderAll();
+</script>
+</body>
+</html>
